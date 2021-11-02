@@ -1,20 +1,17 @@
 from fastapi import APIRouter, status, Depends
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import Response, JSONResponse
-from db.database import Session, engine
-from fastapi.responses import JSONResponse
-from .schema.auth_schema import LoginModel, SignUpModel
+from fastapi.responses import Response
+from db.database import session
+from .schema.auth_schema import LoginModel, SignUpModel, verify_password, get_password_hash
 from model.models import User
 from fastapi.exceptions import HTTPException
-from werkzeug.security import generate_password_hash, check_password_hash
+
 from fastapi_jwt_auth import AuthJWT
 
 auth_router = APIRouter(
     prefix='/auth',
     tags=['auth']
 )
-session = Session(bind=engine)
-
 
 @auth_router.get('/')
 async def hello(Authorize: AuthJWT = Depends()):
@@ -53,7 +50,7 @@ async def signUp(user: SignUpModel, response: Response):
     new_user = User(
         username=user.username,
         email=user.email,
-        password=generate_password_hash(user.password),
+        password=get_password_hash(user.password),
         is_active=True if (db_email or db_username) is None else False,
         is_staff=user.is_staff
     )
@@ -68,7 +65,7 @@ async def signUp(user: SignUpModel, response: Response):
 async def login(user: LoginModel, Authorize: AuthJWT = Depends()):
     db_user = session.query(User).filter(
         User.username == user.username).first()
-    if db_user and check_password_hash(db_user.password, user.password):
+    if db_user and verify_password(db_user.password, user.password):
         access_token = Authorize.create_access_token(subject=user.username)
         refresh_token = Authorize.create_refresh_token(subject=user.username)
 
