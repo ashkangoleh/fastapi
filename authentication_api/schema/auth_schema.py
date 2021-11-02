@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Any, Optional, Dict
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class SignUpModel(BaseModel):
@@ -30,3 +31,11 @@ class Settings(BaseModel):
 class LoginModel(BaseModel):
     username: str
     password: str
+
+
+def verify_password(plain_password, hashed_password):
+    return check_password_hash(plain_password, hashed_password)
+
+
+def get_password_hash(password):
+    return generate_password_hash(password)
