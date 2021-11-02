@@ -1,5 +1,6 @@
 from fastapi import APIRouter, status, Depends
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy.sql.functions import user
 from .schema import order_schema
 from model.models import User, Order
 from fastapi_jwt_auth import AuthJWT
@@ -60,7 +61,6 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, Aut
 
 
 # list of orders
-
 @order_router.get('/order_list')
 async def list_orders(Authorize: AuthJWT = Depends()):
     try:
@@ -83,7 +83,7 @@ async def list_orders(Authorize: AuthJWT = Depends()):
 
 
 @order_router.get('/orders/{id}')
-async def get_order_by_id(id:int, Authorize: AuthJWT = Depends()):
+async def get_order_by_id(id: int, Authorize: AuthJWT = Depends()):
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -91,18 +91,20 @@ async def get_order_by_id(id:int, Authorize: AuthJWT = Depends()):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Token"
         )
-    user = Authorize.get_jwt_subject()
-    
-    current_user = session.query(User).filter(User.username == user).first()
-    
-    if current_user.is_staff:
+    current_user = Authorize.get_jwt_subject()
+
+    user = session.query(User).filter(User.username == current_user).first()
+
+    if user.is_staff:
         order = session.query(Order).filter(Order.id == id).first()
         return jsonable_encoder(order)
-    
+
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
-        detail="Order Not Found"
+        detail=f"{user.username} is not superuser"
     )
+
+# user order
 
 
 @order_router.get('/user/orders')
@@ -115,12 +117,49 @@ async def list_orders(Authorize: AuthJWT = Depends()):
             detail="Invalid Token"
         )
     current_user = Authorize.get_jwt_subject()
-    
+
     user = session.query(User).filter(User.username == current_user).first()
-    
+
     if user.is_active:
-        return jsonable_encoder(user.orders)
+        order = user.orders
+        if not len(order):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order Not Found"
+            )
+        else:
+            return jsonable_encoder(order)
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Must be superUser"
+        detail=f"{user.username} is not active"
+    )
+
+#  get current user specific order
+
+
+@order_router.get('/user/order/{id}')
+async def get_user_specific_order(id: int, Authorize: AuthJWT = Depends()):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Token"
+        )
+    current_user = Authorize.get_jwt_subject()
+    user = session.query(User).filter(User.username == current_user).first()
+    if user.is_active:
+        orders = user.orders
+
+        for obj in orders:
+            if obj.id == id:
+                return jsonable_encoder(obj)
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No order Found"
+        )
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"{user.username} is not active"
     )
