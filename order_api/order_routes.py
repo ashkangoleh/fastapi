@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status, Depends
+from fastapi import responses
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.sql.functions import current_user, user
 from .schema import order_schema
@@ -28,8 +29,38 @@ async def hello(Authorize: AuthJWT = Depends()):
     }
 
 
-@order_router.post('/order')
+@order_router.post('/order',operation_id="authorize")
 async def place_an_order(order: order_schema.OrderModel, response: Response, Authorize: AuthJWT = Depends()):
+    """place an order
+
+    Args:
+        order (order_schema.OrderModel): Order Schema
+        response (Response): custom Response
+        Authorize (AuthJWT, optional): User based on jwt. Defaults to Depends().
+
+    Raises:
+        HTTPException: validation token error
+    Requests:
+        dict:
+        {
+            "order_sizes":string,
+            "quantity":int
+        }
+    Returns:
+        dict:
+        {
+            "order_size": {
+                "code": string,
+                "value": string
+            },
+            "quantity": int,
+            "id": int,
+            "order_status": {
+                "code": string,
+                "value": string
+            }
+        }
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -63,6 +94,24 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, Aut
 # list of orders
 @order_router.get('/order_list')
 async def list_orders(Authorize: AuthJWT = Depends()):
+    """list of orders
+
+    Args:
+        Authorize (AuthJWT, optional): User based on JWT. Defaults to Depends().
+
+    Raises:
+        HTTPException: token validation error
+        HTTPException: user type
+
+    Returns:
+        list:
+        [
+            dict:
+            {
+                same as place and order
+            }
+        ]
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -84,6 +133,23 @@ async def list_orders(Authorize: AuthJWT = Depends()):
 
 @order_router.get('/orders/{id}')
 async def get_order_by_id(id: int, Authorize: AuthJWT = Depends()):
+    """get order by ID
+
+    Args:
+        id (int): Order ID
+        Authorize (AuthJWT, optional): User based on JWT. Defaults to Depends().
+
+    Raises:
+        HTTPException: token validation error
+        HTTPException: user type
+    Requests:
+        params:string
+    Returns:
+        dict: 
+        {
+            same as place and order
+        }
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -109,6 +175,21 @@ async def get_order_by_id(id: int, Authorize: AuthJWT = Depends()):
 
 @order_router.get('/user/orders')
 async def list_orders(Authorize: AuthJWT = Depends()):
+    """user order list
+
+    Args:
+        Authorize (AuthJWT, optional): user based on JWT. Defaults to Depends().
+
+    Raises:
+        HTTPException: token validation error
+        HTTPException: order exists message
+        HTTPException: user activation
+
+    Returns:
+        dict| list: {
+            same as place and order
+        }
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -139,6 +220,23 @@ async def list_orders(Authorize: AuthJWT = Depends()):
 
 @order_router.get('/user/order/{id}')
 async def get_user_specific_order(id: int, Authorize: AuthJWT = Depends()):
+    """get specific order by ID
+
+    Args:
+        id (int): order ID
+        Authorize (AuthJWT, optional): user based on JWT. Defaults to Depends().
+
+    Raises:
+        HTTPException: token valdation error
+        HTTPException: order existing messages
+        HTTPException: user activation
+
+    Returns:
+        dict: 
+        {
+            same as place and order
+        }
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -166,8 +264,30 @@ async def get_user_specific_order(id: int, Authorize: AuthJWT = Depends()):
 # update order
 
 
-@order_router.patch('/update/{id}')
+@order_router.patch('/{id}')
 async def update_order(id: int, order: order_schema.OrderModel, Authorize: AuthJWT = Depends()):
+    """update order
+
+    Args:
+        id (int): order ID
+        order (order_schema.OrderModel): Order Schema
+        Authorize (AuthJWT, optional): user based on JWT. Defaults to Depends().
+
+    Raises:
+        HTTPException: token validation error
+        HTTPException: order in Action
+    Requests:
+        dict:
+        {
+            "order_sizes":string,
+            "quantity":int
+        }
+    Returns:
+        dict: 
+        {
+            same as place in order
+        }
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -198,9 +318,30 @@ async def update_order(id: int, order: order_schema.OrderModel, Authorize: AuthJ
             )
 
 
-# order status route
-@order_router.patch('/admin/update/{id}')
+# update order status
+@order_router.patch('/status/{id}')
 async def update_order_status(id: int, order: order_schema.OrderStatusModel, Authorize: AuthJWT = Depends()):
+    """update status order
+
+    Args:
+        id (int): order ID
+        order (order_schema.OrderStatusModel): OrderStatus Schema
+        Authorize (AuthJWT, optional): user based on JWT. Defaults to Depends().
+
+    Raises:
+        HTTPException: token validation error
+        
+    Requests:
+        dict:
+        {
+            "order_status":string
+        }
+    Returns:
+        dict: 
+        {
+            same as place in order
+        }
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -218,7 +359,6 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel, Aut
             Order).filter(Order.id == id).first()
         update_order_status.order_status = order.order_status
         session.commit()
-        # order_updated = session.query(Order).filter(Order.id == id).first()
         response = {
             "id": update_order_status.id,
             "quantity": update_order_status.quantity,
@@ -229,8 +369,26 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel, Aut
 
 
 # delete order
-@order_router.delete('/admin/delete/{id}')
+@order_router.delete('/{id}')
 async def delete_order(id: int, Authorize: AuthJWT = Depends()):
+    """delete order
+
+    Args:
+        id (int): order ID
+        Authorize (AuthJWT, optional): user based on jwt. Defaults to Depends().
+
+    Raises:
+        HTTPException: token validation error
+        HTTPException: order existing Message
+    Requests:
+        params:string
+    Returns:
+        dict:
+        {
+            "id": int,
+            "detail": string
+        }
+    """
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -248,7 +406,11 @@ async def delete_order(id: int, Authorize: AuthJWT = Depends()):
         if order_to_delete:
             session.delete(order_to_delete)
             session.commit()
-            return order_to_delete
+            response = {
+                "id": order_to_delete.id,
+                "detail": "Order has been deleted"
+            }
+            return jsonable_encoder(response)
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
