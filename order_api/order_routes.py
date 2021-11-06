@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status, Depends
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy.sql.functions import user
+from sqlalchemy.sql.functions import current_user, user
 from .schema import order_schema
 from model.models import User, Order
 from fastapi_jwt_auth import AuthJWT
@@ -163,3 +163,94 @@ async def get_user_specific_order(id: int, Authorize: AuthJWT = Depends()):
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"{user.username} is not active"
     )
+# update order
+
+
+@order_router.patch('/update/{id}')
+async def update_order(id: int, order: order_schema.OrderModel, Authorize: AuthJWT = Depends()):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Token"
+        )
+    current_user = Authorize.get_jwt_subject()
+    user = session.query(User).filter(User.username == current_user).first()
+
+    if user.is_active or user.is_staff:
+        order_update = session.query(Order).filter(Order.id == id).first()
+        if order_update.order_status == "PENDING":
+            order_update.quantity = order.quantity
+            order_update.order_sizes = order.order_sizes
+            session.commit()
+            response = {
+                "id": order_update.id,
+                "quantity": order_update.quantity,
+                "order_sizes": order_update.order_sizes,
+                "order_status": order_update.order_status,
+            }
+            return jsonable_encoder(response)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_226_IM_USED,
+                detail="Your Order/s already in action"
+            )
+
+
+# order status route
+@order_router.patch('/admin/update/{id}')
+async def update_order_status(id: int, order: order_schema.OrderStatusModel, Authorize: AuthJWT = Depends()):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        return HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Token"
+        )
+
+    current_user = Authorize.get_jwt_subject()
+
+    user = session.query(User).filter(User.username == current_user).first()
+
+    if user.is_staff:
+        update_order_status = session.query(
+            Order).filter(Order.id == id).first()
+        update_order_status.order_status = order.order_status
+        session.commit()
+        # order_updated = session.query(Order).filter(Order.id == id).first()
+        response = {
+            "id": update_order_status.id,
+            "quantity": update_order_status.quantity,
+            "order_sizes": update_order_status.order_sizes,
+            "order_status": update_order_status.order_status,
+        }
+        return jsonable_encoder(response)
+
+
+# delete order
+@order_router.delete('/admin/delete/{id}')
+async def delete_order(id: int, Authorize: AuthJWT = Depends()):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Token"
+        )
+
+    current_user = Authorize.get_jwt_subject()
+
+    user = session.query(User).filter(User.username == current_user).first()
+
+    if user.is_staff:
+        order_to_delete = session.query(Order).filter(Order.id == id).first()
+        if order_to_delete:
+            session.delete(order_to_delete)
+            session.commit()
+            return order_to_delete
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
