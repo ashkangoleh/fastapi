@@ -29,7 +29,7 @@ async def hello(Authorize: AuthJWT = Depends()):
     }
 
 
-@order_router.post('/order',operation_id="authorize")
+@order_router.post('/order', operation_id="authorize")
 async def place_an_order(order: order_schema.OrderModel, response: Response, Authorize: AuthJWT = Depends()):
     """place an order
 
@@ -330,7 +330,7 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel, Aut
 
     Raises:
         HTTPException: token validation error
-        
+
     Requests:
         dict:
         {
@@ -357,15 +357,21 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel, Aut
     if user.is_staff:
         update_order_status = session.query(
             Order).filter(Order.id == id).first()
-        update_order_status.order_status = order.order_status
-        session.commit()
-        response = {
-            "id": update_order_status.id,
-            "quantity": update_order_status.quantity,
-            "order_sizes": update_order_status.order_sizes,
-            "order_status": update_order_status.order_status,
-        }
-        return jsonable_encoder(response)
+        if update_order_status:
+            update_order_status.order_status = order.order_status
+            session.commit()
+            response = {
+                "id": update_order_status.id,
+                "quantity": update_order_status.quantity,
+                "order_sizes": update_order_status.order_sizes,
+                "order_status": update_order_status.order_status,
+            }
+            return jsonable_encoder(response)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
 
 
 # delete order
