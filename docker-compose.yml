@@ -1,0 +1,22 @@
+version: "3"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - psql
+  psql:
+    hostname: fast_psql
+    image: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - "/drive_data/data_storage/psql/:/var/lib/postgresql/data"
+    env_file:
+      - .env
+    
