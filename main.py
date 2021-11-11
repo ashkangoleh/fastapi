@@ -8,7 +8,7 @@ from authentication_api.auth_routes import auth_router
 from order_api.order_routes import order_router
 from authentication_api.schema import auth_schema
 from fastapi_jwt_auth import AuthJWT
-
+from ws.ws import ws
 
 app = FastAPI(
     title="core_api",
@@ -75,6 +75,9 @@ app.include_router(
 app.include_router(
     order_router,
     prefix="/api/v1"
+)
+app.include_router(
+    ws,
 )
 
 
