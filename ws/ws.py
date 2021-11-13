@@ -1,17 +1,65 @@
+from typing import Any, List, Optional,Dict
 from fastapi import APIRouter, status, Depends
 import json
 import asyncio
-from fastapi import Request
+from fastapi import Request,Body,Query
+from fastapi.exceptions import HTTPException
 from fastapi import WebSocket
-
-
+from fastapi_jwt_auth import AuthJWT
+from starlette.websockets import WebSocketClose, WebSocketDisconnect
+from fastapi_jwt_auth.exceptions import AuthJWTException
+from .coin_api import (
+    coinAPI,
+    COIN_URL,
+    COIN_PASSWORD,
+    TIME_FRAME_LIST
+)
 ws = APIRouter()
 
 @ws.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    while True:
-        await asyncio.sleep(1)
-        payload = "this is test"
-        await websocket.send_json(payload)
-    await websocket.close()
+    """websocket to get coin pairs
+
+    Args:
+        websocket (WebSocket): websocket.receive_json =>{
+                                                            "start":boolean,  // if true means start connection , false stop connection
+                                                            "time_frame":int, // time frame 5 15 30 4h ...
+                                                            "data":{
+                                                                "exchange":str  // exchange name
+                                                            }
+
+                                                        }
+    """
+    
+    message = await websocket.receive_json()
+    if message['start'] == True:
+        if message['time_frame'] in TIME_FRAME_LIST:
+            try:
+                while True:
+                    await asyncio.sleep(message['time_frame']*60)
+                    payload = coinAPI(
+                        url=COIN_URL, password=COIN_PASSWORD, time_frame=message['time_frame'], exchange=message['data']['exchange'])
+                    await websocket.send_json(payload)
+            except WebSocketDisconnect:
+                pass
+        else:
+            await websocket.send_json({
+            'status': 'fail',
+            'message': 'time_frame incorrect'
+        })
+    else:
+        await websocket.send_json({
+            'status': 'fail',
+            'message': 'websocket closed'
+        })
+
+
+# get cookie by default
+# @ws.get('/get-cookie')
+# def get_cookie(Authorize: AuthJWT = Depends()):
+#     access_token = Authorize.create_access_token(subject='a',fresh=True)
+#     refresh_token = Authorize.create_refresh_token(subject='a')
+
+#     Authorize.set_access_cookies(access_token)
+#     Authorize.set_refresh_cookies(refresh_token)
+#     return {"msg":"Successfully login"}
