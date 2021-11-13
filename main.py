@@ -8,13 +8,16 @@ from authentication_api.auth_routes import auth_router
 from order_api.order_routes import order_router
 from authentication_api.schema import auth_schema
 from fastapi_jwt_auth import AuthJWT
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from ws.ws import ws
 
 app = FastAPI(
     title="core_api",
 )
 
-
+app.add_middleware(
+    TrustedHostMiddleware, allowed_hosts=["*",]
+)
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
