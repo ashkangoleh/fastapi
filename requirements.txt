@@ -1,18 +1,24 @@
 anyio==3.3.4
 asgiref==3.4.1
 autopep8==1.6.0
+certifi==2021.10.8
+charset-normalizer==2.0.7
 click==8.0.3
 fastapi==0.70.0
 fastapi-jwt-auth==0.5.0
+gevent==21.8.0
 greenlet==1.1.2
 h11==0.12.0
+httptools==0.2.0
 idna==3.3
 passlib==1.7.4
-# psycopg2-binary==2.9.1
+psycopg2-binary==2.9.1
 pycodestyle==2.8.0
 pydantic==1.8.2
 PyJWT==1.7.1
 python-decouple==3.5
+PyYAML==6.0
+requests==2.26.0
 six==1.16.0
 sniffio==1.2.0
 SQLAlchemy==1.4.26
@@ -20,5 +26,11 @@ SQLAlchemy-Utils==0.37.9
 starlette==0.16.0
 toml==0.10.2
 typing-extensions==3.10.0.2
+urllib3==1.26.7
 uvicorn==0.15.0
+uvloop==0.16.0
+watchgod==0.7
+websockets==10.0
 Werkzeug==2.0.2
+zope.event==4.5.0
+zope.interface==5.4.0
