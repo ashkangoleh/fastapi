@@ -1,7 +1,0 @@
-# fastapi
-
-
-
-## Getting started
-
-
