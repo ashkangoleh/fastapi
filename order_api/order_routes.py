@@ -1,5 +1,6 @@
+from typing import Any, Dict
 from fastapi import APIRouter, status, Depends
-from fastapi import responses
+from fastapi import responses,Body
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.sql.functions import current_user, user
 from .schema import order_schema
@@ -26,6 +27,23 @@ async def hello(Authorize: AuthJWT = Depends()):
         )
     return {
         "message": "This is Order route"
+    }
+
+@order_router.get('/a')
+async def hello1(request:Any=Body(...),Authorize: AuthJWT = Depends()):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Token"
+        )
+    # use operations for digits in string from json or objects(dict)
+    data = request.get('test')
+    s = "".join([i for i in data])
+    return {
+        "message": "This is Order route",
+        "data":eval(s)
     }
 
 
