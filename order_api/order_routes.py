@@ -425,7 +425,8 @@ async def delete_order(id: int, Authorize: AuthJWT = Depends()):
 
     user = session.query(User).filter(User.username == current_user).first()
 
-    if user.is_staff:
+    # if user.is_staff:
+    if user:
         order_to_delete = session.query(Order).filter(Order.id == id).first()
         if order_to_delete:
             session.delete(order_to_delete)
