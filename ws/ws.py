@@ -1,8 +1,8 @@
-from typing import Any, List, Optional,Dict
+from typing import Any, List, Optional, Dict
 from fastapi import APIRouter, status, Depends
 import json
 import asyncio
-from fastapi import Request,Body,Query
+from fastapi import Request, Body, Query
 from fastapi.exceptions import HTTPException
 from fastapi import WebSocket
 from fastapi_jwt_auth import AuthJWT
@@ -15,6 +15,7 @@ from .coin_api import (
     TIME_FRAME_LIST
 )
 ws = APIRouter()
+
 
 @ws.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -30,28 +31,34 @@ async def websocket_endpoint(websocket: WebSocket):
 
                                                         }
     """
-    
-    message = await websocket.receive_json()
-    if message['start'] == True:
-        if message['time_frame'] in TIME_FRAME_LIST:
-            try:
-                while True:
-                    await asyncio.sleep(message['time_frame']*60)
+    await websocket.accept()
+    while 1:
+        message= await websocket.receive_json()
+        if message['start']:
+            if message['time_frame'] in TIME_FRAME_LIST:
+                try:
+                    # await asyncio.sleep(message['time_frame']*60)
+                    await asyncio.sleep(2)
                     payload = coinAPI(
                         url=COIN_URL, password=COIN_PASSWORD, time_frame=message['time_frame'], exchange=message['data']['exchange'])
                     await websocket.send_json(payload)
-            except WebSocketDisconnect:
-                pass
+
+                except WebSocketDisconnect:
+                    await websocket.send_json({
+                        'status': 'fail',
+                        'message': 'websocket disconnected'
+                    })
+            else:
+                await websocket.send_json({
+                    'status': 'fail',
+                    'message': 'time_frame incorrect'
+                })
         else:
             await websocket.send_json({
-            'status': 'fail',
-            'message': 'time_frame incorrect'
-        })
-    else:
-        await websocket.send_json({
-            'status': 'fail',
-            'message': 'websocket closed'
-        })
+                'status': 'fail',
+                'message': 'websocket closed'
+            })
+    
 
 
 # get cookie by default
