@@ -15,7 +15,10 @@ from .coin_api import (
     COIN_PASSWORD,
     TIME_FRAME_LIST
 )
+from utils.cbv import ClassBased
+
 ws = APIRouter()
+wrapper = ClassBased(ws)
 
 
 @ws.websocket("/ws")
@@ -64,6 +67,14 @@ async def websocket_endpoint(websocket: WebSocket):
 async def redirect_url():
     return "https://devsteam.ir/"
 
+# class based (1 route multiple methods)
+@wrapper('/item')
+class Item:
+    def get():
+        return {"item_id": "q"}
+
+    def post():
+        return {"item_name":1}
 # get cookie by default
 # @ws.get('/get-cookie')
 # def get_cookie(Authorize: AuthJWT = Depends()):
