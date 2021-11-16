@@ -6,6 +6,7 @@ from fastapi import Request, Body, Query
 from fastapi.exceptions import HTTPException
 from fastapi import WebSocket
 from fastapi_jwt_auth import AuthJWT
+from starlette.responses import RedirectResponse
 from starlette.websockets import WebSocketClose, WebSocketDisconnect
 from fastapi_jwt_auth.exceptions import AuthJWTException
 from .coin_api import (
@@ -37,8 +38,7 @@ async def websocket_endpoint(websocket: WebSocket):
         if message['start']:
             if message['time_frame'] in TIME_FRAME_LIST:
                 try:
-                    # await asyncio.sleep(message['time_frame']*60)
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(message['time_frame']*60)
                     payload = coinAPI(
                         url=COIN_URL, password=COIN_PASSWORD, time_frame=message['time_frame'], exchange=message['data']['exchange'])
                     await websocket.send_json(payload)
@@ -60,6 +60,9 @@ async def websocket_endpoint(websocket: WebSocket):
             })
     
 
+@ws.get('/redirect',response_class=RedirectResponse,status_code=302)
+async def redirect_url():
+    return "https://devsteam.ir/"
 
 # get cookie by default
 # @ws.get('/get-cookie')
