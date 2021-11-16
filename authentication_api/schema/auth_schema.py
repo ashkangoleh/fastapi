@@ -1,16 +1,41 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,EmailStr,ValidationError,validator
 from typing import Any, Optional, Dict
+from pydantic.class_validators import root_validator
 from werkzeug.security import generate_password_hash, check_password_hash
 
+
+def verify_password(plain_password, hashed_password):
+    return check_password_hash(plain_password, hashed_password)
+
+
+def get_password_hash(password):
+    return generate_password_hash(password)
 
 class SignUpModel(BaseModel):
     id: Optional[int]
     username: str
-    email: str
+    email: EmailStr
     password: str
+    password2: Optional[str]
     is_staff: Optional[bool]
     is_active: Optional[bool]
+    
+    def hashed_password(self):
+        self.password = get_password_hash(self.password)
+        self.password2 = get_password_hash(self.password)
+        return self.password and self.password2
+    
 
+    @validator('password2')
+    def passwords_match(cls, v, values, **kwargs):
+        if 'password' in values and v != values['password']:
+            raise ValueError('passwords do not match')
+        return v
+
+    @validator('username')
+    def username_alphanumeric(cls, v):
+        assert v.isalnum(), 'must be alphanumeric'
+        return v
     class Config:
         orm_mode = True
         schema_extra = {
@@ -37,9 +62,3 @@ class LoginModel(BaseModel):
     password: str
 
 
-def verify_password(plain_password, hashed_password):
-    return check_password_hash(plain_password, hashed_password)
-
-
-def get_password_hash(password):
-    return generate_password_hash(password)
