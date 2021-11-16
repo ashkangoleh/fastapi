@@ -1,8 +1,9 @@
+from re import match
 from pydantic import BaseModel,EmailStr,ValidationError,validator
 from typing import Any, Optional, Dict
 from pydantic.class_validators import root_validator
 from werkzeug.security import generate_password_hash, check_password_hash
-
+import re
 
 def verify_password(plain_password, hashed_password):
     return check_password_hash(plain_password, hashed_password)
@@ -15,6 +16,7 @@ class SignUpModel(BaseModel):
     id: Optional[int]
     username: str
     email: EmailStr
+    phone_number : Optional[str]
     password: str
     password2: Optional[str]
     is_staff: Optional[bool]
@@ -25,7 +27,13 @@ class SignUpModel(BaseModel):
         self.password2 = get_password_hash(self.password)
         return self.password and self.password2
     
-
+    @validator('phone_number')
+    def phone_number_must_have_10_digits(cls,v):
+        match = re.match(r"0\d{9}",v)
+        if (match is None) or (len(v) != 10):
+            raise ValueError('Phone number must have 10 digits')
+        return v
+    
     @validator('password2')
     def passwords_match(cls, v, values, **kwargs):
         if 'password' in values and v != values['password']:
