@@ -89,14 +89,21 @@ async def signUp(user: SignUpModel, response: Response):
     new_user = User(
         username=user.username,
         email=user.email,
-        password=get_password_hash(user.password),
+        password=user.hashed_password(),
         is_active=True if (db_email or db_username) is None else False,
         is_staff=user.is_staff
     )
+    user.password2 = user.hashed_password()
     session.add(new_user)
     session.commit()
+    resp = {
+        "username":user.username,
+        "email": user.email,
+        "password": user.hashed_password(),
+        "password2": user.password2,
+    }
     response.status_code = status.HTTP_201_CREATED
-    return new_user
+    return jsonable_encoder(resp)
 
 
 # login route
@@ -154,7 +161,7 @@ async def refresh_token(Authorize: AuthJWT = Depends()):
 
     Request:
         bearer jwt refresh token
-    
+
     Returns:
         dict: 
         {
