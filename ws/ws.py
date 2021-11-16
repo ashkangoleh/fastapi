@@ -15,7 +15,7 @@ from .coin_api import (
     COIN_PASSWORD,
     TIME_FRAME_LIST
 )
-from utils.cbv import CBV
+from utils import CBV
 
 ws = APIRouter()
 wrapper = CBV(ws)
