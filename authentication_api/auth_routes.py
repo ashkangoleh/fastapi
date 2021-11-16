@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status, Depends
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import Response
+from fastapi.responses import Response,JSONResponse
 from db.database import session
 from .schema.auth_schema import LoginModel, SignUpModel, verify_password, get_password_hash
 from model.models import User
@@ -72,38 +72,49 @@ async def signUp(user: SignUpModel, response: Response):
         }
     """
     db_email = session.query(User).filter(User.email == user.email).first()
+    db_username = session.query(User).filter(
+        User.username == user.username).first()
+    db_phone_number = session.query(User).filter(
+        User.phone_number == user.phone_number).first()
     if db_email is not None:
         response.status_code = status.HTTP_400_BAD_REQUEST
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="User with the email already exists",
                             headers=None
                             )
-    db_username = session.query(User).filter(
-        User.username == user.username).first()
     if db_username is not None:
         response.status_code = status.HTTP_400_BAD_REQUEST
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="User with the username already exists",
                             headers=None
                             )
-    new_user = User(
-        username=user.username,
-        email=user.email,
-        password=user.hashed_password(),
-        is_active=True if (db_email or db_username) is None else False,
-        is_staff=user.is_staff
-    )
+    if db_phone_number is not None:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="phone number already exists",
+                            headers=None
+                            )
+    user_dict = {
+        "username": user.username,
+        "email": user.email,
+        "phone_number": user.phone_number,
+        "password": user.hashed_password(),
+        "is_active": True if (db_phone_number) is None else False,
+        "is_staff": user.is_staff
+    }
+    new_user = User(**user_dict)
     user.password2 = user.hashed_password()
     session.add(new_user)
     session.commit()
     resp = {
-        "username":user.username,
+        "username": user.username,
         "email": user.email,
+        "phone_number": user.phone_number,
         "password": user.hashed_password(),
         "password2": user.password2,
     }
     response.status_code = status.HTTP_201_CREATED
-    return jsonable_encoder(resp)
+    return JSONResponse(content=resp)
 
 
 # login route
