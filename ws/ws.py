@@ -15,10 +15,10 @@ from .coin_api import (
     COIN_PASSWORD,
     TIME_FRAME_LIST
 )
-from utils.cbv import ClassBased
+from utils.cbv import CBV
 
 ws = APIRouter()
-wrapper = ClassBased(ws)
+wrapper = CBV(ws)
 
 
 @ws.websocket("/ws")

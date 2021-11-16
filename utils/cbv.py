@@ -1,4 +1,4 @@
-class ClassBased:
+class CBV:
     methods = (
         'get',
         'post',
