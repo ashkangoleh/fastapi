@@ -1,9 +1,11 @@
+from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 import inspect
 import re
 from fastapi.openapi.utils import get_openapi
+from fastapi_jwt_auth.exceptions import AuthJWTException
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI,Request
 from authentication_api.auth_routes import auth_router
 from order_api.order_routes import order_router
 from authentication_api.schema import auth_schema
@@ -70,6 +72,12 @@ app.openapi = custom_openapi
 def get_config():
     return auth_schema.Settings()
 
+@app.exception_handler(AuthJWTException)
+def authjwt_exception_handler(request: Request, exc: AuthJWTException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.message}
+    )
 
 app.include_router(
     auth_router,
