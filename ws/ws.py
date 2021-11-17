@@ -48,8 +48,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...), Auth
 
         })
         await websocket.close()
+    message = await websocket.receive_json()
     while websocket.application_state == websockets.WebSocketState.CONNECTED:
-        message = await websocket.receive_json()
         if message['start']:
             if message['time_frame'] in TIME_FRAME_LIST:
                 try:
@@ -58,7 +58,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...), Auth
                     payload = coinAPI(
                         url=COIN_URL, password=COIN_PASSWORD, time_frame=message['time_frame'], exchange=message['data']['exchange'])
                     await websocket.send_json(payload)
-
                 except WebSocketDisconnect:
                     await websocket.send_json({
                         'status': 'fail',
