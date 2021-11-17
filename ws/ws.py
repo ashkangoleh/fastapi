@@ -2,12 +2,14 @@ from typing import Any, List, Optional, Dict
 from fastapi import APIRouter, status, Depends
 import json
 import asyncio
-from fastapi import Request, Body, Query
+from fastapi import Request, Body, Query, Cookie
 from fastapi.exceptions import HTTPException
 from fastapi import WebSocket
 from fastapi_jwt_auth import AuthJWT
+from starlette import websockets
 from starlette.responses import RedirectResponse
 from starlette.websockets import WebSocketClose, WebSocketDisconnect
+from starlette import websockets
 from fastapi_jwt_auth.exceptions import AuthJWTException
 from .coin_api import (
     coinAPI,
@@ -22,7 +24,7 @@ wrapper = CBV(ws)
 
 
 @ws.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, token: str = Query(...), Authorize: AuthJWT = Depends()):
     """websocket to get coin pairs
 
     Args:
@@ -36,12 +38,23 @@ async def websocket_endpoint(websocket: WebSocket):
                                                         }
     """
     await websocket.accept()
-    while 1:
-        message= await websocket.receive_json()
+    try:
+        Authorize.jwt_required("websocket", token=token)
+    except AuthJWTException as err:
+        await websocket.send_json({
+            'status': 'fail',
+            'detail': err.message,
+            'message': 'invalid token',
+
+        })
+        await websocket.close()
+    while websocket.application_state == websockets.WebSocketState.CONNECTED:
+        message = await websocket.receive_json()
         if message['start']:
             if message['time_frame'] in TIME_FRAME_LIST:
                 try:
-                    await asyncio.sleep(message['time_frame']*60)
+                    # await asyncio.sleep(message['time_frame']*60)
+                    await asyncio.sleep(1)
                     payload = coinAPI(
                         url=COIN_URL, password=COIN_PASSWORD, time_frame=message['time_frame'], exchange=message['data']['exchange'])
                     await websocket.send_json(payload)
@@ -61,20 +74,24 @@ async def websocket_endpoint(websocket: WebSocket):
                 'status': 'fail',
                 'message': 'websocket closed'
             })
-    
+            await websocket.close()
+        
 
-@ws.get('/redirect',response_class=RedirectResponse,status_code=302)
+
+@ws.get('/redirect', response_class=RedirectResponse, status_code=302)
 async def redirect_url():
     return "https://devsteam.ir/"
 
 # class based (1 route multiple methods)
+
+
 @wrapper('/item')
 class Item:
     def get():
         return {"item_id": "q"}
 
     def post():
-        return {"item_name":1}
+        return {"item_name": 1}
 # get cookie by default
 # @ws.get('/get-cookie')
 # def get_cookie(Authorize: AuthJWT = Depends()):
