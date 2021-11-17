@@ -1,9 +1,6 @@
-from typing import Any, List, Optional, Dict
 from fastapi import APIRouter, status, Depends
-import json
 import asyncio
 from fastapi import Request, Body, Query, Cookie
-from fastapi.exceptions import HTTPException
 from fastapi import WebSocket
 from fastapi_jwt_auth import AuthJWT
 from starlette import websockets
