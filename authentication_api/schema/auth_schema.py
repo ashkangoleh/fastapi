@@ -25,7 +25,7 @@ class SignUpModel(BaseModel):
     def hashed_password(self):
         self.password = get_password_hash(self.password)
         self.password2 = get_password_hash(self.password)
-        return self.password and self.password2
+        return self.password
     
     @validator('phone_number')
     def phone_number_must_have_10_digits(cls,v):
