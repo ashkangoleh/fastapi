@@ -1,7 +1,11 @@
-from fastapi import APIRouter, status, Depends
+from fastapi import (
+    APIRouter,
+    Depends,
+    Query,
+    Header,
+    WebSocket
+    )
 import asyncio
-from fastapi import Request, Body, Query, Cookie
-from fastapi import WebSocket
 from fastapi_jwt_auth import AuthJWT
 from starlette import websockets
 from starlette.responses import RedirectResponse
@@ -21,7 +25,7 @@ wrapper = CBV(ws)
 
 
 @ws.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, token: str = Query(...), Authorize: AuthJWT = Depends()):
+async def websocket_endpoint(websocket: WebSocket, token: str = Header(...) ,Authorize: AuthJWT = Depends()):
     """websocket to get coin pairs
 
     Args:
@@ -45,8 +49,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...), Auth
 
         })
         await websocket.close()
-    message = await websocket.receive_json()
     while websocket.application_state == websockets.WebSocketState.CONNECTED:
+        message = await websocket.receive_json()
         if message['start']:
             if message['time_frame'] in TIME_FRAME_LIST:
                 try:
