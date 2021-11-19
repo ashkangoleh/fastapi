@@ -249,28 +249,36 @@ class ResetPassword():
         db_user = session.query(User).filter(
             User.username == request.username).first()
         verify_code = session.query(CVN).filter(
-             db_user.username == request.username).order_by(CVN.id.desc()).first()
+             User.username == request.username).order_by(CVN.id.desc()).first()
+        print(f"verify user id: {verify_code.user_id}")
+        print(f"userid: {db_user.id}")
         if db_user:
-            if verify_code.validation == True and verify_code.expiration_time < (datetime.datetime.now() + datetime.timedelta(minutes=2)):
-                    if verify_code.code == request.code :
-                        db_user.password = request.hashed_password()
-                        verify_code.validation = False
-                        session.commit()
-                        resp = {
-                            "new_password": request.new_password,
-                            "new_password2": request.new_password2,
-                        }
-                        return JSONResponse(content=resp)
-                    else:
-                        raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="verification code is not valid"
-                    )
+            if db_user.id == verify_code.user_id:
+                if verify_code.validation == True and verify_code.expiration_time < (datetime.datetime.now() + datetime.timedelta(minutes=2)):
+                        if verify_code.code == request.code :
+                            db_user.password = request.hashed_password()
+                            verify_code.validation = False
+                            session.commit()
+                            resp = {
+                                "new_password": request.new_password,
+                                "new_password2": request.new_password2,
+                            }
+                            return JSONResponse(content=resp)
+                        else:
+                            raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="verification code is not valid"
+                        )
+                else:
+                    raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="verification code expired"
+                )
             else:
-                raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="verification code expired"
-            )
+                    raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="invalid username"
+                )
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
