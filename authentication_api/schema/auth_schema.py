@@ -1,3 +1,4 @@
+import datetime
 from re import match
 from pydantic import BaseModel,EmailStr,ValidationError,validator
 from typing import Any, Optional, Dict
@@ -5,8 +6,8 @@ from pydantic.class_validators import root_validator
 from werkzeug.security import generate_password_hash, check_password_hash
 import re
 
-def verify_password(plain_password, hashed_password):
-    return check_password_hash(plain_password, hashed_password)
+def verify_password(hashed_password,plain_password):
+    return check_password_hash(hashed_password,plain_password)
 
 
 def get_password_hash(password):
@@ -56,6 +57,25 @@ class SignUpModel(BaseModel):
             }
         }
 
+class ResetPassword(BaseModel):
+    code: str
+    username: str
+    # email: EmailStr
+    new_password: str
+    new_password2: Optional[str]
+    
+    def hashed_password(self):
+        self.new_password = get_password_hash(self.new_password)
+        self.new_password2 = get_password_hash(self.new_password)
+        return self.new_password
+    
+    @validator('new_password2')
+    def passwords_match(cls, v, values, **kwargs):
+        if 'new_password' in values and v != values['new_password']:
+            raise ValueError('new_password do not match')
+        return v
+    
+    
 
 class Settings(BaseModel):
     authjwt_secret_key: str = 'f00cc46cca11ba7fb31010c7435b8593267d8e973cf55e85d905083452246b20'
