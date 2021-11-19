@@ -5,7 +5,14 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
 from db.database import session
 from utils.cbv import CBV
-from .schema.auth_schema import LoginModel, SignUpModel, verify_password, ResetPassword ,get_password_hash,verify_password
+from .schema.auth_schema import (
+    LoginModel,
+    SignUpModel,
+    verify_password,
+    ResetPassword,
+    get_password_hash,
+    verify_password
+)
 from model.models import (
     User, CodeVerification as CVN
 )
@@ -201,27 +208,6 @@ async def refresh_token(Authorize: AuthJWT = Depends()):
             "access_token": access_token
         }
     )
-# @auth_router.get('/reset_password')
-# async def reset_password_get(request:Dict=Body(...)):
-#         code = "3"
-#         db_user = session.query(User).filter(User.username == request.user).first()
-#         if db_user:
-#             return {
-#                 "code":code
-#             }
-# @auth_router.post('/reset_password')
-# async def reset_password_post(request:ResetPassword,code=Depends(reset_password_get)):
-#         db_user = session.query(User).filter(User.username == request.username).first()
-#         if db_user and request.code == str(code):
-#             db_user.password = request.hashed_password()
-#             session.commit()
-#             resp = {
-#             "new_password":request.new_password,
-#             "new_password2":request.new_password2,
-#             }
-#         return JSONResponse(content=resp)
-
-
 @wrapper_auth('/password')
 class ResetPassword():
 
@@ -234,8 +220,8 @@ class ResetPassword():
             session.add(code)
             session.commit()
             response = {
-                "status":"success",
-                "data":"2 minutes expire time",
+                "status": "success",
+                "data": "2 minutes expire time",
                 "message": "verify code already send"
             }
             return jsonable_encoder(response)
@@ -249,52 +235,63 @@ class ResetPassword():
         db_user = session.query(User).filter(
             User.username == request.username).first()
         verify_code = session.query(CVN).filter(
-             User.username == request.username).order_by(CVN.id.desc()).first()
-        print(f"verify user id: {verify_code.user_id}")
-        print(f"userid: {db_user.id}")
+            User.username == request.username).order_by(CVN.id.desc()).first()
         if db_user:
             if db_user.id == verify_code.user_id:
                 if verify_code.validation == True and verify_code.expiration_time < (datetime.datetime.now() + datetime.timedelta(minutes=2)):
-                        if verify_code.code == request.code :
-                            db_user.password = request.hashed_password()
-                            verify_code.validation = False
-                            session.commit()
-                            resp = {
-                                "new_password": request.new_password,
-                                "new_password2": request.new_password2,
-                            }
-                            return JSONResponse(content=resp)
-                        else:
-                            raise HTTPException(
+                    if verify_code.code == request.code:
+                        db_user.password = request.hashed_password()
+                        verify_code.validation = False
+                        session.commit()
+                        resp = {
+                            "new_password": request.new_password,
+                            "new_password2": request.new_password2,
+                        }
+                        return JSONResponse(content=resp)
+                    else:
+                        raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
                             detail="verification code is not valid"
                         )
                 else:
                     raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="verification code expired"
-                )
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="verification code expired"
+                    )
             else:
-                    raise HTTPException(
+                raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="invalid username"
                 )
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User does not exists"
+                detail="User does not exist"
             )
-            
-    def patch(request:Dict=Body(...)):
-        db_user = session.query(User).filter(User.username == request['username']).first()
+
+    def patch(request: Dict = Body(...)):
+        db_user = session.query(User).filter(
+            User.username == request['username']).first()
         if db_user:
-            print(verify_password(db_user.password,request['password']))
-            if verify_password(db_user.password,request['password']) == True:
-                db_user.password = get_password_hash(request['new_password'])
-                session.commit()
+            if verify_password(db_user.password, request['password']):
+                new_password = get_password_hash(request['new_password'])
+                if not verify_password(db_user.password, request['new_password']):
+                    db_user.password = new_password
+                    session.commit()
+                    response = {
+                        "status": "success",
+                        "message": f"{db_user.username} password changed"
+                    }
+                    return jsonable_encoder(response)
+                else:
+                    response = {
+                        "status": "fail",
+                        "message": "new password is same as old password choose another password"
+                    }
+                    return jsonable_encoder(response)
+            else:
                 response = {
-                    "status":"success"
+                    "status": "fail",
+                    "message": "username / password is not currect"
                 }
                 return jsonable_encoder(response)
-            else:
-                return jsonable_encoder(False)
