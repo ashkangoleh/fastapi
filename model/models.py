@@ -16,7 +16,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(25), unique=True)
     email = Column(String(80), unique=True)
-    phone_number = Column(String(10), unique=True, nullable=True, default=None)
+    phone_number = Column(String(11), unique=True, nullable=True, default=None)
     password = Column(Text, nullable=False)
     is_staff = Column(Boolean, default=False)
     is_active = Column(Boolean, default=False)
