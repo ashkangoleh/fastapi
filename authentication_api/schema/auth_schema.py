@@ -30,8 +30,8 @@ class SignUpModel(BaseModel):
     
     @validator('phone_number')
     def phone_number_must_have_10_digits(cls,v):
-        match = re.match(r"0\d{9}",v)
-        if (match is None) or (len(v) != 10):
+        match = re.match(r"0\d{10}",v)
+        if (match is None) or (len(v) != 11):
             raise ValueError('Phone number must have 10 digits')
         return v
     
