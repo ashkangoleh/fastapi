@@ -6,10 +6,10 @@ from sqlalchemy import (
     Column,
     Integer,
     Text,
-    ForeignKey,
+    ForeignKey,DateTime
 )
 from sqlalchemy_utils import ChoiceType
-
+import datetime
 
 class User(Base):
     __tablename__ = "user"
@@ -23,6 +23,7 @@ class User(Base):
     # relation order to user
     # string name as obj in relationship is Class name
     orders = relationship('Order', back_populates="user")
+    verification_code = relationship('CodeVerification', back_populates="user")
 
     def __repr__(self):
         return f"<user {self.username}>"
@@ -53,3 +54,17 @@ class Order(Base):
 
     def __repr__(self):
         return f"<Order {self.id}>"
+
+
+class CodeVerification(Base):
+    __tablename__ = "verification_code"
+    id = Column(Integer, primary_key=True)
+    code = Column(String(6), nullable=False)
+    validation = Column(Boolean,nullable=True,default=True)
+    expiration_time = Column(DateTime,default=datetime.datetime.now())
+    user_id = Column(Integer, ForeignKey("user.id"))
+    user = relationship("User", back_populates='verification_code')
+    
+    def __repr__(self):
+        return f"<code for {self.id}>"
+
