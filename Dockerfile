@@ -8,5 +8,6 @@ RUN apt-get update \
     && pip install -r /home/core_api/requirements.txt
 
 COPY . /home/core_api/
+RUN chmod 777 -R .
 EXPOSE 8000
 CMD python init_db.py
