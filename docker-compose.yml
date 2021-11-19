@@ -9,6 +9,7 @@ services:
       - "8000:8000"
     depends_on:
       - psql
+    command: python3 runserver.py
   psql:
     hostname: fast_psql
     image: postgres
