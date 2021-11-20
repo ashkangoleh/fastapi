@@ -3,7 +3,6 @@ from typing import Dict
 from fastapi import APIRouter, status, Depends, Body,Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
-from sqlalchemy.sql.functions import current_user
 from starlette.requests import Request
 from db.database import session
 from utils import CBV,GeoIpLocation
@@ -130,8 +129,7 @@ async def signUp(user: SignUpModel, response: Response):
         "password": user.hashed_password(),
         "password2": user.password2,
     }
-    response.status_code = status.HTTP_201_CREATED
-    return JSONResponse(content=resp)
+    return JSONResponse(content=resp,status_code=status.HTTP_201_CREATED)
 
 
 # login route
@@ -174,7 +172,7 @@ async def login(request:Request,user: LoginModel, Authorize: AuthJWT = Depends()
             "access_token": access_token,
             "refresh_token": refresh_token
         }
-        return jsonable_encoder(resp)
+        return JSONResponse(content=resp,status_code=status.HTTP_201_CREATED)
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Invalid Username or Password")
 
@@ -231,7 +229,7 @@ class ResetPassword():
                 "status": "success",
                 "message": "verify code already send"
             }
-            return jsonable_encoder(response)
+            return JSONResponse(content=response,status_code=status.HTTP_200_OK)
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -254,7 +252,7 @@ class ResetPassword():
                             "status":"success",
                             "message":"Password changed successfully"
                         }
-                        return JSONResponse(content=resp)
+                        return JSONResponse(content=resp,status_code=status.HTTP_201_CREATED)
                     else:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
@@ -276,7 +274,7 @@ class ResetPassword():
                 detail="User does not exist"
             )
 
-    def patch(request: Dict = Body(...)):
+    def patch(response: Response,request: Dict = Body(...)):
         db_user = session.query(User).filter(
             User.username == request['username']).first()
         if db_user:
@@ -289,19 +287,19 @@ class ResetPassword():
                         "status": "success",
                         "message": f"{db_user.username} password changed"
                     }
-                    return jsonable_encoder(response)
+                    return JSONResponse(content=response,status_code=status.HTTP_201_CREATED)
                 else:
                     response = {
                         "status": "fail",
                         "message": "new password is same as old password choose another password"
                     }
-                    return jsonable_encoder(response)
+                    return JSONResponse(content=response,status_code=status.HTTP_400_BAD_REQUEST)
             else:
                 response = {
                     "status": "fail",
                     "message": "username / password is not currect"
                 }
-                return jsonable_encoder(response)
+                return JSONResponse(content=response,status_code=status.HTTP_400_BAD_REQUEST)
 
 
 @auth_router.get("/userlog")

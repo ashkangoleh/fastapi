@@ -8,7 +8,7 @@ from model.models import User, Order
 from fastapi_jwt_auth import AuthJWT
 from db.database import session
 from fastapi.exceptions import HTTPException
-from fastapi.responses import Response
+from fastapi.responses import Response,JSONResponse
 
 order_router = APIRouter(
     prefix='/order',
@@ -106,7 +106,7 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, Aut
         "id": new_order.id,
         "order_status": new_order.order_status
     }
-    return jsonable_encoder(resp)
+    return JSONResponse(content=resp,status_code=status.HTTP_201_CREATED)
 
 
 # list of orders
@@ -141,7 +141,7 @@ async def list_orders(Authorize: AuthJWT = Depends()):
     user = session.query(User).filter(User.username == current_user).first()
     if user.is_staff:
         orders = session.query(Order).all()
-        return jsonable_encoder(orders)
+        return JSONResponse(content=orders,status_code=status.HTTP_200_OK)
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Must be superUser"
@@ -181,7 +181,7 @@ async def get_order_by_id(id: int, Authorize: AuthJWT = Depends()):
 
     if user.is_staff:
         order = session.query(Order).filter(Order.id == id).first()
-        return jsonable_encoder(order)
+        return JSONResponse(content=order,status_code=status.HTTP_200_OK)
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -227,7 +227,7 @@ async def list_orders(Authorize: AuthJWT = Depends()):
                 detail="Order Not Found"
             )
         else:
-            return jsonable_encoder(order)
+            return JSONResponse(content=order,status_code=status.HTTP_200_OK)
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=f"{user.username} is not active"
@@ -269,7 +269,7 @@ async def get_user_specific_order(id: int, Authorize: AuthJWT = Depends()):
 
         for obj in orders:
             if obj.id == id:
-                return jsonable_encoder(obj)
+                return JSONResponse(content=obj,status_code=status.HTTP_200_OK)
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -328,7 +328,7 @@ async def update_order(id: int, order: order_schema.OrderModel, Authorize: AuthJ
                 "order_sizes": order_update.order_sizes,
                 "order_status": order_update.order_status,
             }
-            return jsonable_encoder(response)
+            return JSONResponse(content=response,status_code=status.HTTP_201_CREATED)
         else:
             raise HTTPException(
                 status_code=status.HTTP_226_IM_USED,
@@ -384,7 +384,7 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel, Aut
                 "order_sizes": update_order_status.order_sizes,
                 "order_status": update_order_status.order_status,
             }
-            return jsonable_encoder(response)
+            return JSONResponse(content=response,status_code=status.HTTP_201_CREATED)
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -435,7 +435,7 @@ async def delete_order(id: int, Authorize: AuthJWT = Depends()):
                 "id": order_to_delete.id,
                 "detail": "Order has been deleted"
             }
-            return jsonable_encoder(response)
+            return JSONResponse(content=response,status_code=status.HTTP_201_CREATED)
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
