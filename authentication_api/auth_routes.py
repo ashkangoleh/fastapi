@@ -168,8 +168,8 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
                 "is_staff": db_user.is_staff,
             }
         }
-        access_token = Authorize.create_access_token(subject=user.username, user_claims=user_claims)
-        refresh_token = Authorize.create_refresh_token(subject=user.username,user_claims=user_claims)
+        access_token = Authorize.create_access_token(subject=user.username, user_claims=user_claims,algorithm='HS512')
+        refresh_token = Authorize.create_refresh_token(subject=user.username,user_claims=user_claims,algorithm='HS512')
         ip_loc = request.client.host
         geo = GeoIpLocation(ip_loc)
         geoLoc = UserLog(user_id=db_user.id, user_log=geo)
@@ -221,7 +221,7 @@ async def refresh_token(Authorize: AuthJWT = Depends()):
                     "is_staff": db_user.is_staff,
                 }
             }
-    access_token = Authorize.create_access_token(subject=current_user,user_claims=user_claims)
+    access_token = Authorize.create_access_token(subject=current_user,user_claims=user_claims,algorithm='HS512')
 
     return jsonable_encoder(
         {
