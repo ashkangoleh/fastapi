@@ -219,7 +219,7 @@ async def refresh_token(Authorize: AuthJWT = Depends()):
 @wrapper_auth('/password')
 class ResetPassword():
 
-    def get(req:Request,request: Dict = Body(...)):
+    def get(request: Dict = Body(...)):
         db_user = session.query(User).filter(
             User.username == request['username']).first()
         if db_user:
@@ -252,8 +252,10 @@ class ResetPassword():
                         verify_code.validation = False
                         session.commit()
                         resp = {
+                            "status":"success",
                             "new_password": request.new_password,
                             "new_password2": request.new_password2,
+                            "message":"Password changed successfully"
                         }
                         return JSONResponse(content=resp)
                     else:
