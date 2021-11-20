@@ -1,10 +1,12 @@
 import random
 from typing import Dict
-from fastapi import APIRouter, status, Depends, Body
+from fastapi import APIRouter, status, Depends, Body,Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
+from sqlalchemy.sql.functions import current_user
+from starlette.requests import Request
 from db.database import session
-from utils.cbv import CBV
+from utils import CBV,GeoIpLocation
 from .schema.auth_schema import (
     LoginModel,
     SignUpModel,
@@ -14,7 +16,9 @@ from .schema.auth_schema import (
     verify_password
 )
 from model.models import (
-    User, CodeVerification as CVN
+    User,
+    UserLog,
+    CodeVerification as CVN
 )
 from fastapi.exceptions import HTTPException
 import datetime
@@ -132,7 +136,7 @@ async def signUp(user: SignUpModel, response: Response):
 
 # login route
 @auth_router.post('/login')
-async def login(user: LoginModel, Authorize: AuthJWT = Depends()):
+async def login(request:Request,user: LoginModel, Authorize: AuthJWT = Depends()):
     """user login
 
     Args:
@@ -161,7 +165,12 @@ async def login(user: LoginModel, Authorize: AuthJWT = Depends()):
     if db_user and verify_password(db_user.password, user.password):
         access_token = Authorize.create_access_token(subject=user.username)
         refresh_token = Authorize.create_refresh_token(subject=user.username)
-
+        # ip_loc = request.client.host
+        ip_loc = "185.112.38.50"
+        geo = GeoIpLocation(ip_loc)
+        geoLoc = UserLog(user_id=db_user.id,user_log=geo)
+        session.add(geoLoc)
+        session.commit()
         resp = {
             "access_token": access_token,
             "refresh_token": refresh_token
@@ -211,7 +220,7 @@ async def refresh_token(Authorize: AuthJWT = Depends()):
 @wrapper_auth('/password')
 class ResetPassword():
 
-    def get(request: Dict = Body(...)):
+    def get(req:Request,request: Dict = Body(...)):
         db_user = session.query(User).filter(
             User.username == request['username']).first()
         if db_user:
@@ -295,3 +304,19 @@ class ResetPassword():
                     "message": "username / password is not currect"
                 }
                 return jsonable_encoder(response)
+
+
+@auth_router.get("/userlog")
+async def user_log(Authorize:AuthJWT=Depends()):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Token"
+        )
+    current_user = Authorize.get_jwt_subject()
+    db_log = session.query(UserLog).filter(User.username == current_user).all()
+    data = {logs.login_datetime.timestamp():logs.user_log for logs in db_log}
+    return jsonable_encoder(data)
+    
