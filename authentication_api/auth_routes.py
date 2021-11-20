@@ -1,11 +1,11 @@
 import random
 from typing import Dict
-from fastapi import APIRouter, status, Depends, Body,Request
+from fastapi import APIRouter, status, Depends, Body, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
 from starlette.requests import Request
 from db.database import session
-from utils import CBV,GeoIpLocation
+from utils import CBV, GeoIpLocation
 from .schema.auth_schema import (
     LoginModel,
     SignUpModel,
@@ -129,12 +129,12 @@ async def signUp(user: SignUpModel, response: Response):
         "password": user.hashed_password(),
         "password2": user.password2,
     }
-    return JSONResponse(content=resp,status_code=status.HTTP_201_CREATED)
+    return JSONResponse(content=resp, status_code=status.HTTP_201_CREATED)
 
 
 # login route
 @auth_router.post('/login')
-async def login(request:Request,user: LoginModel, Authorize: AuthJWT = Depends()):
+async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends()):
     """user login
 
     Args:
@@ -161,18 +161,25 @@ async def login(request:Request,user: LoginModel, Authorize: AuthJWT = Depends()
     db_user = session.query(User).filter(
         User.username == user.username).first()
     if db_user and verify_password(db_user.password, user.password):
-        access_token = Authorize.create_access_token(subject=user.username)
-        refresh_token = Authorize.create_refresh_token(subject=user.username)
+        user_claims = {
+            "detail": {
+                "phone_number": db_user.phone_number,
+                "is_active": db_user.is_active,
+                "is_staff": db_user.is_staff,
+            }
+        }
+        access_token = Authorize.create_access_token(subject=user.username, user_claims=user_claims)
+        refresh_token = Authorize.create_refresh_token(subject=user.username,user_claims=user_claims)
         ip_loc = request.client.host
         geo = GeoIpLocation(ip_loc)
-        geoLoc = UserLog(user_id=db_user.id,user_log=geo)
+        geoLoc = UserLog(user_id=db_user.id, user_log=geo)
         session.add(geoLoc)
         session.commit()
         resp = {
             "access_token": access_token,
             "refresh_token": refresh_token
         }
-        return JSONResponse(content=resp,status_code=status.HTTP_201_CREATED)
+        return JSONResponse(content=resp, status_code=status.HTTP_201_CREATED)
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Invalid Username or Password")
 
@@ -206,14 +213,23 @@ async def refresh_token(Authorize: AuthJWT = Depends()):
             detail="Invalid Refresh Token"
         )
     current_user = Authorize.get_jwt_subject()
-
-    access_token = Authorize.create_access_token(subject=current_user)
+    db_user = session.query(User).filter(User.username == current_user).first()
+    user_claims = {
+                "detail": {
+                    "phone_number": db_user.phone_number,
+                    "is_active": db_user.is_active,
+                    "is_staff": db_user.is_staff,
+                }
+            }
+    access_token = Authorize.create_access_token(subject=current_user,user_claims=user_claims)
 
     return jsonable_encoder(
         {
             "access_token": access_token
         }
     )
+
+
 @wrapper_auth('/password')
 class ResetPassword():
 
@@ -229,7 +245,7 @@ class ResetPassword():
                 "status": "success",
                 "message": "verify code already send"
             }
-            return JSONResponse(content=response,status_code=status.HTTP_200_OK)
+            return JSONResponse(content=response, status_code=status.HTTP_200_OK)
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -249,10 +265,10 @@ class ResetPassword():
                         verify_code.validation = False
                         session.commit()
                         resp = {
-                            "status":"success",
-                            "message":"Password changed successfully"
+                            "status": "success",
+                            "message": "Password changed successfully"
                         }
-                        return JSONResponse(content=resp,status_code=status.HTTP_201_CREATED)
+                        return JSONResponse(content=resp, status_code=status.HTTP_201_CREATED)
                     else:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
@@ -274,7 +290,7 @@ class ResetPassword():
                 detail="User does not exist"
             )
 
-    def patch(response: Response,request: Dict = Body(...)):
+    def patch(response: Response, request: Dict = Body(...)):
         db_user = session.query(User).filter(
             User.username == request['username']).first()
         if db_user:
@@ -287,23 +303,23 @@ class ResetPassword():
                         "status": "success",
                         "message": f"{db_user.username} password changed"
                     }
-                    return JSONResponse(content=response,status_code=status.HTTP_201_CREATED)
+                    return JSONResponse(content=response, status_code=status.HTTP_201_CREATED)
                 else:
                     response = {
                         "status": "fail",
                         "message": "new password is same as old password choose another password"
                     }
-                    return JSONResponse(content=response,status_code=status.HTTP_400_BAD_REQUEST)
+                    return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
             else:
                 response = {
                     "status": "fail",
                     "message": "username / password is not currect"
                 }
-                return JSONResponse(content=response,status_code=status.HTTP_400_BAD_REQUEST)
+                return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 @auth_router.get("/userlog")
-async def user_log(Authorize:AuthJWT=Depends()):
+async def user_log(Authorize: AuthJWT = Depends()):
     try:
         Authorize.jwt_required()
     except Exception as e:
@@ -313,6 +329,5 @@ async def user_log(Authorize:AuthJWT=Depends()):
         )
     current_user = Authorize.get_jwt_subject()
     db_log = session.query(UserLog).filter(User.username == current_user).all()
-    data = {logs.login_datetime.timestamp():logs.user_log for logs in db_log}
+    data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
     return jsonable_encoder(data)
-    
