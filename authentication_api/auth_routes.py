@@ -165,8 +165,7 @@ async def login(request:Request,user: LoginModel, Authorize: AuthJWT = Depends()
     if db_user and verify_password(db_user.password, user.password):
         access_token = Authorize.create_access_token(subject=user.username)
         refresh_token = Authorize.create_refresh_token(subject=user.username)
-        # ip_loc = request.client.host
-        ip_loc = "185.112.38.50"
+        ip_loc = request.client.host
         geo = GeoIpLocation(ip_loc)
         geoLoc = UserLog(user_id=db_user.id,user_log=geo)
         session.add(geoLoc)
