@@ -229,7 +229,6 @@ class ResetPassword():
             session.commit()
             response = {
                 "status": "success",
-                "data": "2 minutes expire time",
                 "message": "verify code already send"
             }
             return jsonable_encoder(response)
@@ -253,8 +252,6 @@ class ResetPassword():
                         session.commit()
                         resp = {
                             "status":"success",
-                            "new_password": request.new_password,
-                            "new_password2": request.new_password2,
                             "message":"Password changed successfully"
                         }
                         return JSONResponse(content=resp)
