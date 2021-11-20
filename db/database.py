@@ -12,5 +12,5 @@ engine = create_engine(
 )
 
 Base = declarative_base()
-Session = sessionmaker()
-session = Session(bind=engine)
+Session_maker = sessionmaker()
+session = Session_maker(bind=engine)
