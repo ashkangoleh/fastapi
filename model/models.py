@@ -1,4 +1,5 @@
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql.sqltypes import JSON
 from db.database import Base
 from sqlalchemy import (
     Boolean,
@@ -6,7 +7,7 @@ from sqlalchemy import (
     Column,
     Integer,
     Text,
-    ForeignKey,DateTime
+    ForeignKey,DateTime,JSON
 )
 from sqlalchemy_utils import ChoiceType
 import datetime
@@ -24,6 +25,7 @@ class User(Base):
     # string name as obj in relationship is Class name
     orders = relationship('Order', back_populates="user")
     verification_code = relationship('CodeVerification', back_populates="user")
+    users_log = relationship('UserLog', back_populates="user")
 
     def __repr__(self):
         return f"<user {self.username}>"
@@ -68,3 +70,14 @@ class CodeVerification(Base):
     def __repr__(self):
         return f"<code for {self.id}>"
 
+
+class UserLog(Base):
+    __tablename__ = "users_log"
+    id = Column(Integer,primary_key=True)
+    user_log = Column(JSON)
+    login_datetime = Column(DateTime,default=datetime.datetime.now())
+    user_id = Column(Integer, ForeignKey("user.id"))
+    user = relationship("User",back_populates='users_log')
+    
+    def __repr__(self):
+        return f"<code for {self.id}>"
