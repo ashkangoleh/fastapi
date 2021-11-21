@@ -20,8 +20,6 @@ class SignUpModel(BaseModel):
     phone_number : Optional[str]
     password: str
     password2: Optional[str]
-    is_staff: Optional[bool]
-    is_active: Optional[bool]
     
     def hashed_password(self):
         self.password = get_password_hash(self.password)

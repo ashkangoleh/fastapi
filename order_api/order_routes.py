@@ -90,24 +90,29 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, Aut
 
     user = session.query(User).filter(User.username == current_user).first()
 
-    new_order = Order(
-        order_sizes=order.order_sizes,
-        quantity=order.quantity,
-    )
+    if user.is_active:
+        new_order = Order(
+            order_sizes=order.order_sizes,
+            quantity=order.quantity,
+        )
 
-    new_order.user = user
+        new_order.user = user
 
-    session.add(new_order)
-    session.commit()
-    response.status_code = status.HTTP_201_CREATED
-    resp = {
-        "order_size": new_order.order_sizes,
-        "quantity": new_order.quantity,
-        "id": new_order.id,
-        "order_status": new_order.order_status
-    }
-    return JSONResponse(content=resp,status_code=status.HTTP_201_CREATED)
-
+        session.add(new_order)
+        session.commit()
+        response.status_code = status.HTTP_201_CREATED
+        resp = {
+            "order_size": new_order.order_sizes,
+            "quantity": new_order.quantity,
+            "id": new_order.id,
+            "order_status": new_order.order_status
+        }
+        return JSONResponse(content=resp,status_code=status.HTTP_201_CREATED)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not active"
+        )
 
 # list of orders
 @order_router.get('/order_list')
