@@ -3,8 +3,7 @@ from fastapi import APIRouter, status, Depends
 from fastapi import responses,Body
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.sql.functions import current_user, user
-
-from utils.auth_handler import AuthHandler
+from utils import AuthHandler
 from .schema import order_schema
 from model.models import User, Order
 from fastapi_jwt_auth import AuthJWT
@@ -19,27 +18,13 @@ order_router = APIRouter(
 
 
 @order_router.get('/')
-async def hello(Authorize: AuthJWT = Depends()):
-    try:
-        Authorize.jwt_required()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Token"
-        )
+async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)):
     return {
         "message": "This is Order route"
     }
 
 @order_router.get('/a')
-async def hello1(request:Any=Body(...),Authorize: AuthJWT = Depends()):
-    try:
-        Authorize.jwt_required()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Token"
-        )
+async def hello1(request:Any=Body(...),Authorize: str = Depends(AuthHandler.Token_requirement)):
     # use operations for digits in string from json or objects(dict)
     data = request.get('test')
     s = "".join([i for i in data])
@@ -49,8 +34,8 @@ async def hello1(request:Any=Body(...),Authorize: AuthJWT = Depends()):
     }
 
 
-@order_router.post('/order', operation_id="authorize")
-async def place_an_order(order: order_schema.OrderModel, response: Response, Authorize: AuthJWT = Depends()):
+@order_router.post('/order')
+async def place_an_order(order: order_schema.OrderModel, response: Response, Authorize: str = Depends(AuthHandler.Token_requirement)):
     """place an order
 
     Args:
@@ -81,13 +66,6 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, Aut
             }
         }
     """
-    try:
-        Authorize.jwt_required()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Token"
-        )
     current_user = Authorize.get_jwt_subject()
 
     user = session.query(User).filter(User.username == current_user).first()
@@ -109,7 +87,7 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, Aut
             "id": new_order.id,
             "order_status": new_order.order_status
         }
-        return JSONResponse(content=resp,status_code=status.HTTP_201_CREATED)
+        return jsonable_encoder(resp)
     else:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -118,7 +96,7 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, Aut
 
 # list of orders
 @order_router.get('/order_list')
-async def list_orders(Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
+async def list_orders(Authorize: str = Depends(AuthHandler.Token_requirement)):
     """list of orders
 
     Args:
@@ -141,7 +119,7 @@ async def list_orders(Authorize: AuthJWT = Depends(AuthHandler.Token_requirement
     user = session.query(User).filter(User.username == current_user).first()
     if user.is_active:
         orders = session.query(Order).all()
-        return JSONResponse(content=orders,status_code=status.HTTP_200_OK)
+        return jsonable_encoder(orders)
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Must be superUser"
@@ -150,7 +128,7 @@ async def list_orders(Authorize: AuthJWT = Depends(AuthHandler.Token_requirement
 
 
 @order_router.get('/orders/{id}')
-async def get_order_by_id(id: int, Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
+async def get_order_by_id(id: int, Authorize: str = Depends(AuthHandler.Token_requirement)):
     """get order by ID
 
     Args:
@@ -172,9 +150,9 @@ async def get_order_by_id(id: int, Authorize: AuthJWT = Depends(AuthHandler.Toke
 
     user = session.query(User).filter(User.username == current_user).first()
 
-    if user.is_staff:
+    if user.is_active:
         order = session.query(Order).filter(Order.id == id).first()
-        return JSONResponse(content=order,status_code=status.HTTP_200_OK)
+        return jsonable_encoder(order)
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -185,7 +163,7 @@ async def get_order_by_id(id: int, Authorize: AuthJWT = Depends(AuthHandler.Toke
 
 
 @order_router.get('/user/orders')
-async def list_orders(Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
+async def list_orders(Authorize: str = Depends(AuthHandler.Token_requirement)):
     """user order list
 
     Args:
@@ -213,7 +191,7 @@ async def list_orders(Authorize: AuthJWT = Depends(AuthHandler.Token_requirement
                 detail="Order Not Found"
             )
         else:
-            return JSONResponse(content=order,status_code=status.HTTP_200_OK)
+            return jsonable_encoder(order)
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=f"{user.username} is not active"
@@ -223,7 +201,7 @@ async def list_orders(Authorize: AuthJWT = Depends(AuthHandler.Token_requirement
 
 
 @order_router.get('/user/order/{id}')
-async def get_user_specific_order(id: int, Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
+async def get_user_specific_order(id: int, Authorize: str = Depends(AuthHandler.Token_requirement)):
     """get specific order by ID
 
     Args:
@@ -248,7 +226,7 @@ async def get_user_specific_order(id: int, Authorize: AuthJWT = Depends(AuthHand
 
         for obj in orders:
             if obj.id == id:
-                return JSONResponse(content=obj,status_code=status.HTTP_200_OK)
+                return jsonable_encoder(order)
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -262,7 +240,7 @@ async def get_user_specific_order(id: int, Authorize: AuthJWT = Depends(AuthHand
 
 
 @order_router.patch('/{id}')
-async def update_order(id: int, order: order_schema.OrderModel, Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
+async def update_order(id: int, order: order_schema.OrderModel,response:Response, Authorize: str = Depends(AuthHandler.Token_requirement)):
     """update order
 
     Args:
@@ -294,13 +272,14 @@ async def update_order(id: int, order: order_schema.OrderModel, Authorize: AuthJ
             order_update.quantity = order.quantity
             order_update.order_sizes = order.order_sizes
             session.commit()
-            response = {
+            resp = {
                 "id": order_update.id,
                 "quantity": order_update.quantity,
                 "order_sizes": order_update.order_sizes,
                 "order_status": order_update.order_status,
             }
-            return JSONResponse(content=response,status_code=status.HTTP_201_CREATED)
+            response.status_code = status.HTTP_201_CREATED
+            return jsonable_encoder(resp)
         else:
             raise HTTPException(
                 status_code=status.HTTP_226_IM_USED,
@@ -310,7 +289,7 @@ async def update_order(id: int, order: order_schema.OrderModel, Authorize: AuthJ
 
 # update order status
 @order_router.patch('/status/{id}')
-async def update_order_status(id: int, order: order_schema.OrderStatusModel, Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
+async def update_order_status(id: int, order: order_schema.OrderStatusModel,response:Response, Authorize: str = Depends(AuthHandler.Token_requirement)):
     """update status order
 
     Args:
@@ -342,13 +321,14 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel, Aut
         if update_order_status:
             update_order_status.order_status = order.order_status
             session.commit()
-            response = {
+            resp = {
                 "id": update_order_status.id,
                 "quantity": update_order_status.quantity,
                 "order_sizes": update_order_status.order_sizes,
                 "order_status": update_order_status.order_status,
             }
-            return JSONResponse(content=response,status_code=status.HTTP_201_CREATED)
+            response.status_code = status.HTTP_201_CREATED
+            return jsonable_encoder(resp)
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -358,7 +338,7 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel, Aut
 
 # delete order
 @order_router.delete('/{id}')
-async def delete_order(id: int, Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
+async def delete_order(id: int,response:Response, Authorize: str = Depends(AuthHandler.Token_requirement)):
     """delete order
 
     Args:
@@ -387,11 +367,12 @@ async def delete_order(id: int, Authorize: AuthJWT = Depends(AuthHandler.Token_r
         if order_to_delete:
             session.delete(order_to_delete)
             session.commit()
-            response = {
+            resp = {
                 "id": order_to_delete.id,
                 "detail": "Order has been deleted"
             }
-            return JSONResponse(content=response,status_code=status.HTTP_201_CREATED)
+            response.status_code = status_code=status.HTTP_201_CREATED
+            return jsonable_encoder(resp)
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
