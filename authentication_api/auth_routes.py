@@ -8,10 +8,7 @@ from utils import CBV, GeoIpLocation
 from .schema.auth_schema import (
     LoginModel,
     SignUpModel,
-    verify_password,
     ResetPassword,
-    get_password_hash,
-    verify_password
 )
 from model.models import (
     User,
@@ -21,7 +18,7 @@ from model.models import (
 from fastapi.exceptions import HTTPException
 import datetime
 from fastapi_jwt_auth import AuthJWT
-
+from utils import AuthHandler
 auth_router = APIRouter(
     prefix='/auth',
     tags=['Authentication']
@@ -30,7 +27,7 @@ wrapper_auth = CBV(auth_router)
 
 
 @auth_router.get('/')
-async def hello(Authorize: AuthJWT = Depends()):
+async def hello(Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
     """normal route for check authentication
 
     Args:
@@ -42,14 +39,6 @@ async def hello(Authorize: AuthJWT = Depends()):
     Returns:
         str: message
     """
-    try:
-        Authorize.jwt_required()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Token"
-        )
-
     return {
         "message": "This is Authentication route"
     }
@@ -159,7 +148,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
     """
     db_user = session.query(User).filter(
         User.username == user.username).first()
-    if db_user and verify_password(db_user.password, user.password):
+    if db_user and AuthHandler.verify_password(db_user.password, user.password):
         user_claims = {
             "detail": {
                 "phone_number": db_user.phone_number,
@@ -189,7 +178,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
 
 
 @auth_router.get('/refresh')
-async def refresh_token(Authorize: AuthJWT = Depends()):
+async def refresh_token(Authorize: AuthJWT = Depends(AuthHandler.Refresh_token_requirement)):
     """refresh token
 
     Args:
@@ -207,13 +196,6 @@ async def refresh_token(Authorize: AuthJWT = Depends()):
             "access_token":string(jwt.access_token)
         }
     """
-    try:
-        Authorize.jwt_refresh_token_required()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Refresh Token"
-        )
     current_user = Authorize.get_jwt_subject()
     db_user = session.query(User).filter(User.username == current_user).first()
     if db_user.is_active:
@@ -310,9 +292,9 @@ class ResetPassword():
             User.username == request['username']).first()
         if db_user:
             if db_user.is_active:
-                if verify_password(db_user.password, request['password']):
-                    new_password = get_password_hash(request['new_password'])
-                    if not verify_password(db_user.password, request['new_password']):
+                if AuthHandler.verify_password(db_user.password, request['password']):
+                    new_password = AuthHandler.get_password_hash(request['new_password'])
+                    if not AuthHandler.verify_password(db_user.password, request['new_password']):
                         db_user.password = new_password
                         session.commit()
                         response = {
@@ -343,14 +325,7 @@ class ResetPassword():
 
 
 @auth_router.get("/userlog")
-async def user_log(Authorize: AuthJWT = Depends()):
-    try:
-        Authorize.jwt_required()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Token"
-        )
+async def user_log(Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
     current_user = Authorize.get_jwt_subject()
     db_log = session.query(UserLog).filter(User.username == current_user).all()
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
