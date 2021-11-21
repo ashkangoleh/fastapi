@@ -20,7 +20,9 @@ from .coin_api import (
 )
 from utils import CBV
 
-ws = APIRouter()
+ws = APIRouter(
+    tags=['Websocket']
+)
 wrapper = CBV(ws)
 
 

@@ -25,7 +25,7 @@ from fastapi_jwt_auth import AuthJWT
 
 auth_router = APIRouter(
     prefix='/auth',
-    tags=['auth']
+    tags=['Authentication']
 )
 wrapper_auth = CBV(auth_router)
 

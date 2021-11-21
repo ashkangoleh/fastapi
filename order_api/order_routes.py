@@ -12,7 +12,7 @@ from fastapi.responses import Response,JSONResponse
 
 order_router = APIRouter(
     prefix='/order',
-    tags=['orders']
+    tags=['Orders']
 )
 
 

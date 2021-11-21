@@ -14,9 +14,27 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from ws.ws import ws
 
+tags_metadata = [
+    {
+        "name": "Authentication",
+        "description": "Operations with users.",
+    },
+    {
+        "name": "Orders",
+        "description": "Operations with orders.",
+    },
+    {
+        "name": "Websocket",
+        "description": "websocket",
+        "externalDocs": {
+            "description": "websocket external docs",
+        },
+    },
+]
 app = FastAPI(
     title="core_api",
     debug=True,
+    openapi_tags=tags_metadata
 )
 
 ORIGINS = [
@@ -26,10 +44,11 @@ ORIGINS = [
 ALLOWED_HOSTS = [
     "*",
 ]
-
+app.add_middleware(
+    TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS,
+)
 app.add_middleware(
     CORSMiddleware,
-    TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS,
     allow_origins=ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
