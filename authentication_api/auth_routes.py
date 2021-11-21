@@ -27,7 +27,7 @@ wrapper_auth = CBV(auth_router)
 
 
 @auth_router.get('/')
-async def hello(Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
+async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)):
     """normal route for check authentication
 
     Args:
@@ -178,7 +178,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
 
 
 @auth_router.get('/refresh')
-async def refresh_token(Authorize: AuthJWT = Depends(AuthHandler.Refresh_token_requirement)):
+async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement)):
     """refresh token
 
     Args:
@@ -325,7 +325,7 @@ class ResetPassword():
 
 
 @auth_router.get("/userlog")
-async def user_log(Authorize: AuthJWT = Depends(AuthHandler.Token_requirement)):
+async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement)):
     current_user = Authorize.get_jwt_subject()
     db_log = session.query(UserLog).filter(User.username == current_user).all()
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
