@@ -1,17 +1,9 @@
-import datetime
-from re import match
 from pydantic import BaseModel,EmailStr,ValidationError,validator
 from typing import Any, Optional, Dict
-from pydantic.class_validators import root_validator
-from werkzeug.security import generate_password_hash, check_password_hash
+from utils import AuthHandler
 import re
 
-def verify_password(hashed_password,plain_password):
-    return check_password_hash(hashed_password,plain_password)
 
-
-def get_password_hash(password):
-    return generate_password_hash(password)
 
 class SignUpModel(BaseModel):
     id: Optional[int]
@@ -22,8 +14,8 @@ class SignUpModel(BaseModel):
     password2: Optional[str]
     
     def hashed_password(self):
-        self.password = get_password_hash(self.password)
-        self.password2 = get_password_hash(self.password)
+        self.password = AuthHandler.get_password_hash(self.password)
+        self.password2 = AuthHandler.get_password_hash(self.password)
         return self.password
     
     @validator('phone_number')
@@ -63,8 +55,8 @@ class ResetPassword(BaseModel):
     new_password2: Optional[str]
     
     def hashed_password(self):
-        self.new_password = get_password_hash(self.new_password)
-        self.new_password2 = get_password_hash(self.new_password)
+        self.new_password = AuthHandler.get_password_hash(self.new_password)
+        self.new_password2 = AuthHandler.get_password_hash(self.new_password)
         return self.new_password
     
     @validator('new_password2')
