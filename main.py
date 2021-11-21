@@ -11,6 +11,7 @@ from order_api.order_routes import order_router
 from authentication_api.schema import auth_schema
 from fastapi_jwt_auth import AuthJWT
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from ws.ws import ws
 
 app = FastAPI(
@@ -18,9 +19,23 @@ app = FastAPI(
     debug=True,
 )
 
+ORIGINS = [
+    "http://localhost",
+    "http://localhost:8080",
+]
+ALLOWED_HOSTS = [
+    "*",
+]
+
 app.add_middleware(
-    TrustedHostMiddleware, allowed_hosts=["*",]
+    CORSMiddleware,
+    TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS,
+    allow_origins=ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
+
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
