@@ -3,6 +3,7 @@ from fastapi import APIRouter, status, Depends
 from fastapi import responses,Body
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.sql.functions import current_user, user
+from starlette.routing import Router
 from utils import AuthHandler
 from .schema import order_schema
 from model.models import User, Order
@@ -13,18 +14,19 @@ from fastapi.responses import Response,JSONResponse
 
 order_router = APIRouter(
     prefix='/order',
+    dependencies=[Depends(AuthHandler.Token_requirement)],
     tags=['Orders']
 )
-
+Authorize:str = AuthHandler.Token_requirement
 
 @order_router.get('/')
-async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def hello():
     return {
         "message": "This is Order route"
     }
 
 @order_router.get('/a')
-async def hello1(request:Any=Body(...),Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def hello1(request:Any=Body(...)):
     # use operations for digits in string from json or objects(dict)
     data = request.get('test')
     s = "".join([i for i in data])
@@ -35,7 +37,7 @@ async def hello1(request:Any=Body(...),Authorize: str = Depends(AuthHandler.Toke
 
 
 @order_router.post('/order')
-async def place_an_order(order: order_schema.OrderModel, response: Response, Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def place_an_order(order: order_schema.OrderModel, response: Response, Authorize = Depends(AuthHandler.Token_requirement)):
     """place an order
 
     Args:
@@ -96,7 +98,7 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, Aut
 
 # list of orders
 @order_router.get('/order_list')
-async def list_orders(Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def list_orders(Authorize=Depends(Authorize)):
     """list of orders
 
     Args:
@@ -226,7 +228,7 @@ async def get_user_specific_order(id: int, Authorize: str = Depends(AuthHandler.
 
         for obj in orders:
             if obj.id == id:
-                return jsonable_encoder(order)
+                return jsonable_encoder(obj)
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
