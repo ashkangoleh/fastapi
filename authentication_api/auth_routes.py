@@ -111,11 +111,13 @@ async def signUp(user: SignUpModel, response: Response):
     session.add(new_user)
     session.commit()
     resp = {
-        "username": user.username,
-        "email": user.email,
-        "phone_number": user.phone_number,
-        "password": user.hashed_password(),
-        "password2": user.password2,
+        "status":"success",
+        "message":"User created successfully",
+        # "username": user.username,
+        # "email": user.email,
+        # "phone_number": user.phone_number,
+        # "password": user.hashed_password(),
+        # "password2": user.password2,
     }
     return JSONResponse(content=resp, status_code=status.HTTP_201_CREATED)
 
