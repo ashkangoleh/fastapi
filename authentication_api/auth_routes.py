@@ -111,8 +111,8 @@ async def signUp(user: SignUpModel, response: Response):
     session.add(new_user)
     session.commit()
     resp = {
-        "status":"success",
-        "message":"User created successfully",
+        "status": "success",
+        "message": "User created successfully",
         # "username": user.username,
         # "email": user.email,
         # "phone_number": user.phone_number,
@@ -163,10 +163,15 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
         refresh_token = Authorize.create_refresh_token(
             subject=user.username, user_claims=user_claims, algorithm='HS256')
         ip_loc = request.client.host
-        geo = GeoIpLocation(ip_loc)
-        geoLoc = UserLog(user_id=db_user.id, user_log=geo)
-        session.add(geoLoc)
-        session.commit()
+        geo = await GeoIpLocation(ip_loc)
+        if geo['status'] != "fail":
+            geoLoc = UserLog(user_id=db_user.id, user_log=geo)
+            session.add(geoLoc)
+            session.commit()
+        else:
+            geoLoc = UserLog(user_id=db_user.id, user_log={"query": ip_loc})
+            session.add(geoLoc)
+            session.commit()
         resp = {
             "access_token": access_token,
             "refresh_token": refresh_token
@@ -295,7 +300,8 @@ class ResetPassword():
         if db_user:
             if db_user.is_active:
                 if AuthHandler.verify_password(db_user.password, request['password']):
-                    new_password = AuthHandler.get_password_hash(request['new_password'])
+                    new_password = AuthHandler.get_password_hash(
+                        request['new_password'])
                     if not AuthHandler.verify_password(db_user.password, request['new_password']):
                         db_user.password = new_password
                         session.commit()
