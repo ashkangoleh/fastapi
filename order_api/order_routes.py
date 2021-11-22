@@ -4,6 +4,7 @@ from fastapi import responses,Body
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.sql.functions import current_user, user
 from starlette.routing import Router
+from authentication_api.schema.auth_schema import Authorization as Auth
 from utils import AuthHandler
 from .schema import order_schema
 from model.models import User, Order
@@ -17,7 +18,7 @@ order_router = APIRouter(
     dependencies=[Depends(AuthHandler.Token_requirement)],
     tags=['Orders']
 )
-Authorize:str = AuthHandler.Token_requirement
+
 
 @order_router.get('/')
 async def hello():
@@ -37,7 +38,7 @@ async def hello1(request:Any=Body(...)):
 
 
 @order_router.post('/order')
-async def place_an_order(order: order_schema.OrderModel, response: Response, Authorize = Depends(AuthHandler.Token_requirement)):
+async def place_an_order(order: order_schema.OrderModel, response: Response, _user = Depends(Auth.authorize())):
     """place an order
 
     Args:
@@ -68,7 +69,7 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, Aut
             }
         }
     """
-    current_user = Authorize.get_jwt_subject()
+    current_user = _user.get_jwt_subject()
 
     user = session.query(User).filter(User.username == current_user).first()
 
@@ -98,7 +99,7 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, Aut
 
 # list of orders
 @order_router.get('/order_list')
-async def list_orders(Authorize=Depends(Authorize)):
+async def list_orders(_user = Depends(Auth.authorize())):
     """list of orders
 
     Args:
@@ -117,7 +118,7 @@ async def list_orders(Authorize=Depends(Authorize)):
             }
         ]
     """
-    current_user = Authorize.get_jwt_subject()
+    current_user = _user.get_jwt_subject()
     user = session.query(User).filter(User.username == current_user).first()
     if user.is_active:
         orders = session.query(Order).all()
@@ -130,7 +131,7 @@ async def list_orders(Authorize=Depends(Authorize)):
 
 
 @order_router.get('/orders/{id}')
-async def get_order_by_id(id: int, Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def get_order_by_id(id: int, _user: str = Depends(Auth.authorize)):
     """get order by ID
 
     Args:
@@ -148,7 +149,7 @@ async def get_order_by_id(id: int, Authorize: str = Depends(AuthHandler.Token_re
             same as place and order
         }
     """
-    current_user = Authorize.get_jwt_subject()
+    current_user = _user.get_jwt_subject()
 
     user = session.query(User).filter(User.username == current_user).first()
 
@@ -165,7 +166,7 @@ async def get_order_by_id(id: int, Authorize: str = Depends(AuthHandler.Token_re
 
 
 @order_router.get('/user/orders')
-async def list_orders(Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def list_orders(_user: str = Depends(Auth.authorize)):
     """user order list
 
     Args:
@@ -181,7 +182,7 @@ async def list_orders(Authorize: str = Depends(AuthHandler.Token_requirement)):
             same as place and order
         }
     """
-    current_user = Authorize.get_jwt_subject()
+    current_user = _user.get_jwt_subject()
 
     user = session.query(User).filter(User.username == current_user).first()
 
@@ -203,7 +204,7 @@ async def list_orders(Authorize: str = Depends(AuthHandler.Token_requirement)):
 
 
 @order_router.get('/user/order/{id}')
-async def get_user_specific_order(id: int, Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def get_user_specific_order(id: int, _user: str = Depends(Auth.authorize)):
     """get specific order by ID
 
     Args:
@@ -221,7 +222,7 @@ async def get_user_specific_order(id: int, Authorize: str = Depends(AuthHandler.
             same as place and order
         }
     """
-    current_user = Authorize.get_jwt_subject()
+    current_user = _user.get_jwt_subject()
     user = session.query(User).filter(User.username == current_user).first()
     if user.is_active:
         orders = user.orders
@@ -242,7 +243,7 @@ async def get_user_specific_order(id: int, Authorize: str = Depends(AuthHandler.
 
 
 @order_router.patch('/{id}')
-async def update_order(id: int, order: order_schema.OrderModel,response:Response, Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def update_order(id: int, order: order_schema.OrderModel,response:Response, _user: str = Depends(Auth.authorize)):
     """update order
 
     Args:
@@ -265,7 +266,7 @@ async def update_order(id: int, order: order_schema.OrderModel,response:Response
             same as place in order
         }
     """
-    current_user = Authorize.get_jwt_subject()
+    current_user = _user.get_jwt_subject()
     user = session.query(User).filter(User.username == current_user).first()
 
     if user.is_active or user.is_staff:
@@ -291,7 +292,7 @@ async def update_order(id: int, order: order_schema.OrderModel,response:Response
 
 # update order status
 @order_router.patch('/status/{id}')
-async def update_order_status(id: int, order: order_schema.OrderStatusModel,response:Response, Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def update_order_status(id: int, order: order_schema.OrderStatusModel,response:Response, _user: str = Depends(Auth.authorize)):
     """update status order
 
     Args:
@@ -313,7 +314,7 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel,resp
             same as place in order
         }
     """
-    current_user = Authorize.get_jwt_subject()
+    current_user = _user.get_jwt_subject()
 
     user = session.query(User).filter(User.username == current_user).first()
 
@@ -340,7 +341,7 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel,resp
 
 # delete order
 @order_router.delete('/{id}')
-async def delete_order(id: int,response:Response, Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def delete_order(id: int,response:Response, _user: str = Depends(Auth.authorize)):
     """delete order
 
     Args:
@@ -359,7 +360,7 @@ async def delete_order(id: int,response:Response, Authorize: str = Depends(AuthH
             "detail": string
         }
     """
-    current_user = Authorize.get_jwt_subject()
+    current_user = _user.get_jwt_subject()
 
     user = session.query(User).filter(User.username == current_user).first()
 
