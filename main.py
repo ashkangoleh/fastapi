@@ -1,10 +1,7 @@
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-import inspect
-import re
 from fastapi.openapi.utils import get_openapi
 from fastapi_jwt_auth.exceptions import AuthJWTException
-import uvicorn
 from fastapi import FastAPI,Request
 from authentication_api.auth_routes import auth_router
 from order_api.order_routes import order_router
@@ -12,7 +9,12 @@ from authentication_api.schema import auth_schema
 from fastapi_jwt_auth import AuthJWT
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+from uploader import upload_file
+from fastapi.staticfiles import StaticFiles
 from ws.ws import ws
+import uvicorn
+import re
+import inspect
 
 tags_metadata = [
     {
@@ -36,7 +38,6 @@ app = FastAPI(
     debug=True,
     openapi_tags=tags_metadata
 )
-
 ORIGINS = [
     "http://localhost",
     "http://localhost:8080",
@@ -54,6 +55,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 def custom_openapi():
     if app.openapi_schema:
@@ -124,6 +126,9 @@ app.include_router(
 )
 app.include_router(
     ws,
+)
+app.include_router(
+    upload_file.file_router,
 )
 
 
