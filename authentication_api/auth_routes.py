@@ -155,7 +155,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
         User.username == user.username).first()
     if db_user and AuthHandler.verify_password(db_user.password, user.password):
         user_claims = {
-            "detail": {
+            "user": {
                 "id": db_user.id,
                 "phone_number": db_user.phone_number,
                 "is_active": db_user.is_active,
@@ -211,7 +211,7 @@ async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requi
     db_user = session.query(User).filter(User.username == current_user).first()
     if db_user.is_active:
         user_claims = {
-            "detail": {
+            "user": {
                 "id": db_user.id,
                 "phone_number": db_user.phone_number,
                 "is_active": db_user.is_active,
@@ -383,7 +383,7 @@ class Profile():
             )
 
     def get(_user=Depends(AuthHandler.Token_requirement)):
-        user_id = _user.get_raw_jwt()['detail']['id']
+        user_id = _user.get_raw_jwt()['user']['id']
         db_profile = session.query(UserProfile).filter(
             UserProfile.user_id == user_id).first()
         if db_profile:
@@ -397,7 +397,7 @@ class Profile():
             )
 
     def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
-        user_id = _user.get_raw_jwt()['detail']['id']
+        user_id = _user.get_raw_jwt()['user']['id']
         db_profile = session.query(UserProfile).filter(
             UserProfile.user_id == user_id).first()
         if db_profile:
