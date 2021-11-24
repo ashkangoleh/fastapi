@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, ValidationError, validator
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Text
 from utils import AuthHandler
-
+from fastapi import Form
 import re
 
 
@@ -11,7 +11,6 @@ class Authorization:
     @classmethod
     def authorize(cls):
         return cls.Auth
-
 
 
 class SignUpModel(BaseModel):
@@ -75,6 +74,16 @@ class ResetPassword(BaseModel):
         if 'new_password' in values and v != values['new_password']:
             raise ValueError('new_password do not match')
         return v
+
+
+class UserProfileSchema(BaseModel):
+    first_name: str
+    last_name: str
+    address: Optional[Text]
+
+    @classmethod
+    def as_form(cls, first_name: str = Form(...), last_name: str = Form(...), address: Optional[Text] = Form(...)):
+        return cls(first_name=first_name, last_name=last_name, address=address)
 
 
 class Settings(BaseModel):
