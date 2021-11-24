@@ -9,16 +9,19 @@ from .schema.auth_schema import (
     LoginModel,
     SignUpModel,
     ResetPassword,
+    UserProfileSchema,
 )
 from model.models import (
     User,
     UserLog,
-    CodeVerification as CVN
+    CodeVerification as CVN,
+    UserProfile
 )
 from fastapi.exceptions import HTTPException
 import datetime
 from fastapi_jwt_auth import AuthJWT
 from utils import AuthHandler
+
 auth_router = APIRouter(
     prefix='/auth',
     tags=['Authentication']
@@ -153,6 +156,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
     if db_user and AuthHandler.verify_password(db_user.password, user.password):
         user_claims = {
             "detail": {
+                "id": db_user.id,
                 "phone_number": db_user.phone_number,
                 "is_active": db_user.is_active,
                 "is_staff": db_user.is_staff,
@@ -208,6 +212,7 @@ async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requi
     if db_user.is_active:
         user_claims = {
             "detail": {
+                "id": db_user.id,
                 "phone_number": db_user.phone_number,
                 "is_active": db_user.is_active,
                 "is_staff": db_user.is_staff,
@@ -338,3 +343,69 @@ async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement)):
     db_log = session.query(UserLog).filter(User.username == current_user).all()
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
     return jsonable_encoder(data)
+
+
+@wrapper_auth('/profile')
+class Profile():
+
+    def post(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
+        #             with form data
+        # def post(profile: UserProfileSchema=Depends(UserProfileSchema.as_form), _user=Depends(AuthHandler.Token_requirement)):
+        current_user = _user.get_jwt_subject()
+        db_user = session.query(User).filter(
+            User.username == current_user).first()
+        if db_user:
+            try:
+                user_profile = UserProfile(
+                    user_id=db_user.id,
+                    first_name=profile.first_name,
+                    last_name=profile.last_name,
+                    address=profile.address
+                )
+                session.add(user_profile)
+                session.commit()
+                response = {
+                    "user": db_user.username,
+                    "first_name": profile.first_name,
+                    "last_name": profile.last_name,
+                    "address": profile.address
+                }
+                return jsonable_encoder(response)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="User profile already exists"
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="user does not exist"
+            )
+
+    def get(_user=Depends(AuthHandler.Token_requirement)):
+        user_id = _user.get_raw_jwt()['detail']['id']
+        db_profile = session.query(UserProfile).filter(
+            UserProfile.user_id == user_id).first()
+        if db_profile:
+            return jsonable_encoder(
+                {
+                    "Username": db_profile.user.username,
+                    "first_name": db_profile.first_name,
+                    "last_name": db_profile.last_name,
+                    "address": db_profile.address
+                }
+            )
+
+    def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
+        user_id = _user.get_raw_jwt()['detail']['id']
+        db_profile = session.query(UserProfile).filter(
+            UserProfile.user_id == user_id).first()
+        if db_profile:
+            db_profile.first_name = profile.first_name
+            db_profile.last_name = profile.last_name
+            db_profile.address = profile.address
+            session.commit()
+            return jsonable_encoder({
+                "status": "success",
+                "message": f"{db_profile.user.username}'s profile updated"
+            })
