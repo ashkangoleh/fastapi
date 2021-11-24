@@ -8,7 +8,7 @@ DB_ADDRESS=config('POSTGRES_ADDRESS')
 DB_NAME = config('POSTGRES_DB')
 
 engine = create_engine(
-    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_ADDRESS}/{DB_NAME}", echo=True, convert_unicode=True
+    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_ADDRESS}/{DB_NAME}", echo=False, convert_unicode=True
 )
 
 Base = declarative_base()

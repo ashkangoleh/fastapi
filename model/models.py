@@ -7,9 +7,11 @@ from sqlalchemy import (
     Column,
     Integer,
     Text,
-    ForeignKey, DateTime, JSON
+    ForeignKey,
+    DateTime,
+    JSON,
 )
-from sqlalchemy_utils import ChoiceType
+from sqlalchemy_utils import ChoiceType,URLType
 import datetime
 
 
@@ -91,6 +93,7 @@ class UserProfile(Base):
     first_name = Column(String(255), nullable=False)
     last_name = Column(String(255), nullable=False)
     address = Column(Text)
+    image = Column(URLType)
     user_id = Column(Integer, ForeignKey("user.id"))
     user = relationship('User', back_populates="user_profile")
 

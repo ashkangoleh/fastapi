@@ -80,9 +80,10 @@ class UserProfileSchema(BaseModel):
     first_name: str
     last_name: str
     address: Optional[Text]
+    image: Optional[str]
 
     @classmethod
-    def as_form(cls, first_name: str = Form(...), last_name: str = Form(...), address: Optional[Text] = Form(...)):
+    def as_form(cls, first_name: str = Form(...), last_name: str = Form(...), address: Optional[Text] = Form(...),):
         return cls(first_name=first_name, last_name=last_name, address=address)
 
 

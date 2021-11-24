@@ -1,6 +1,7 @@
+import os
 import random
 from typing import Dict
-from fastapi import APIRouter, status, Depends, Body, Request
+from fastapi import APIRouter, status, Depends, Body, Request, UploadFile, File 
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
 from db.database import session
@@ -21,6 +22,8 @@ from fastapi.exceptions import HTTPException
 import datetime
 from fastapi_jwt_auth import AuthJWT
 from utils import AuthHandler
+import shutil
+from PIL import Image
 
 auth_router = APIRouter(
     prefix='/auth',
@@ -116,11 +119,6 @@ async def signUp(user: SignUpModel, response: Response):
     resp = {
         "status": "success",
         "message": "User created successfully",
-        # "username": user.username,
-        # "email": user.email,
-        # "phone_number": user.phone_number,
-        # "password": user.hashed_password(),
-        # "password2": user.password2,
     }
     return JSONResponse(content=resp, status_code=status.HTTP_201_CREATED)
 
@@ -348,19 +346,40 @@ async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement)):
 @wrapper_auth('/profile')
 class Profile():
 
-    def post(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
-        #             with form data
-        # def post(profile: UserProfileSchema=Depends(UserProfileSchema.as_form), _user=Depends(AuthHandler.Token_requirement)):
+    # def post(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
+    #             with form data
+    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...), _user=Depends(AuthHandler.Token_requirement)):
         current_user = _user.get_jwt_subject()
         db_user = session.query(User).filter(
             User.username == current_user).first()
-        if db_user:
+        file_content = await file.read()
+        FILEPATH = "media/profile_image/"
+        user_id = _user.get_raw_jwt()['user']['id']
+        # generated_name = FILEPATH + file.filename    
+        extention = file.filename.split(".")[1]
+        generated_name = FILEPATH + f"{user_id}.{extention}"
+
+        if extention not in ["jpg", "png"]:
+            raise HTTPException(
+                status_code=status.HTTP_406_NOT_ACCEPTABLE,
+                detail="file extension is not valid"
+            ) 
+        if not os.path.exists(generated_name):
+            with open(generated_name, "wb") as file_object:
+                file_object.write(file_content)
+            img = Image.open(generated_name)
+            img = img.resize(size=(200, 200))
+            img.save(generated_name)
+            file_object.close()
             try:
+                url = str(generated_name)
+                profile.image = url
                 user_profile = UserProfile(
                     user_id=db_user.id,
                     first_name=profile.first_name,
                     last_name=profile.last_name,
-                    address=profile.address
+                    address=profile.address,
+                    image=profile.image 
                 )
                 session.add(user_profile)
                 session.commit()
@@ -368,7 +387,8 @@ class Profile():
                     "user": db_user.username,
                     "first_name": profile.first_name,
                     "last_name": profile.last_name,
-                    "address": profile.address
+                    "address": profile.address,
+                    "image": profile.image
                 }
                 return jsonable_encoder(response)
             except Exception as e:
@@ -378,9 +398,9 @@ class Profile():
                 )
         else:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="user does not exist"
-            )
+            status_code=404,
+            detail="file already exists"
+        )
 
     def get(_user=Depends(AuthHandler.Token_requirement)):
         user_id = _user.get_raw_jwt()['user']['id']
