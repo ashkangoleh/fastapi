@@ -354,7 +354,7 @@ class ResetPassword():
 @auth_router.get("/userlog")
 async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement)):
     current_user = Authorize.get_jwt_subject()
-    db_log = session.query(UserLog).filter(User.username == current_user).all()
+    db_log = session.query(UserLog).filter(User.username == current_user).order_by(UserLog.id.desc()).all()[:10]
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
     return jsonable_encoder(data)
 
