@@ -1,9 +1,10 @@
 import os
 import random
 from typing import Dict
-from fastapi import APIRouter, status, Depends, Body, Request, UploadFile, File 
+from fastapi import APIRouter, status, Depends, Body, Request, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
+from pydantic.types import DirectoryPath
 from db.database import session
 from utils import CBV, GeoIpLocation
 from .schema.auth_schema import (
@@ -22,7 +23,7 @@ from fastapi.exceptions import HTTPException
 import datetime
 from fastapi_jwt_auth import AuthJWT
 from utils import AuthHandler
-import shutil
+import secrets
 from PIL import Image
 
 auth_router = APIRouter(
@@ -352,55 +353,65 @@ class Profile():
         current_user = _user.get_jwt_subject()
         db_user = session.query(User).filter(
             User.username == current_user).first()
-        file_content = await file.read()
-        FILEPATH = "media/profile_image/"
-        user_id = _user.get_raw_jwt()['user']['id']
-        # generated_name = FILEPATH + file.filename    
-        extention = file.filename.split(".")[1]
-        generated_name = FILEPATH + f"{user_id}.{extention}"
-
-        if extention not in ["jpg", "png"]:
-            raise HTTPException(
-                status_code=status.HTTP_406_NOT_ACCEPTABLE,
-                detail="file extension is not valid"
-            ) 
-        if not os.path.exists(generated_name):
-            with open(generated_name, "wb") as file_object:
-                file_object.write(file_content)
-            img = Image.open(generated_name)
-            img = img.resize(size=(200, 200))
-            img.save(generated_name)
-            file_object.close()
-            try:
-                url = str(generated_name)
-                profile.image = url
-                user_profile = UserProfile(
-                    user_id=db_user.id,
-                    first_name=profile.first_name,
-                    last_name=profile.last_name,
-                    address=profile.address,
-                    image=profile.image 
-                )
-                session.add(user_profile)
-                session.commit()
-                response = {
-                    "user": db_user.username,
-                    "first_name": profile.first_name,
-                    "last_name": profile.last_name,
-                    "address": profile.address,
-                    "image": profile.image
-                }
-                return jsonable_encoder(response)
-            except Exception as e:
+        db_profile = session.query(UserProfile).filter(UserProfile.user_id == db_user.id).first()
+        if not db_profile:
+            file_content = await file.read()
+            generated_name = ""
+            FILEPATH = "media/profile_image/"
+            extention = file.filename.split(".")[1]
+            token_name = secrets.token_hex(10)+"."+extention
+            if not os.path.exists(FILEPATH+f'{db_user.id}'):
+                make_user_dir = os.mkdir(FILEPATH+f'{db_user.id}')
+                generated_name += make_user_dir+"/" + token_name
+            else:
+                generated_name += FILEPATH+f'{db_user.id}/' + token_name
+            if extention not in ["jpg", "png"]:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="User profile already exists"
+                    status_code=status.HTTP_406_NOT_ACCEPTABLE,
+                    detail="file extension is not valid"
+                )
+            if not os.path.exists(generated_name):
+                with open(generated_name, "wb") as file_object:
+                    file_object.write(file_content)
+                img = Image.open(generated_name)
+                img = img.resize(size=(200, 200))
+                img.save(generated_name)
+                file_object.close()
+                try:
+                    url = str(generated_name)
+                    profile.image = url
+                    user_profile = UserProfile(
+                        user_id=db_user.id,
+                        first_name=profile.first_name,
+                        last_name=profile.last_name,
+                        address=profile.address,
+                        image=profile.image
+                    )
+                    session.add(user_profile)
+                    session.commit()
+                    response = {
+                        "user": db_user.username,
+                        "first_name": profile.first_name,
+                        "last_name": profile.last_name,
+                        "address": profile.address,
+                        "image": profile.image
+                    }
+                    return jsonable_encoder(response)
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="User profile already exists"
+                    )
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail="file already exists"
                 )
         else:
             raise HTTPException(
-            status_code=404,
-            detail="file already exists"
-        )
+                status_code=400,
+                detail="User profile already exists"
+            )
 
     def get(_user=Depends(AuthHandler.Token_requirement)):
         user_id = _user.get_raw_jwt()['user']['id']
@@ -412,7 +423,8 @@ class Profile():
                     "Username": db_profile.user.username,
                     "first_name": db_profile.first_name,
                     "last_name": db_profile.last_name,
-                    "address": db_profile.address
+                    "address": db_profile.address,
+                    "image":db_profile.image
                 }
             )
 
