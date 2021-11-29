@@ -27,3 +27,4 @@ class Middleware:
         )
     def staticFiles(self):
         self.app.mount("/media", StaticFiles(directory="media"), name="media")
+        self.app.mount("/static", StaticFiles(directory="static"), name="static")

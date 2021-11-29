@@ -1,6 +1,7 @@
 from authentication_api.auth_routes import auth_router
 from order_api.order_routes import order_router
 from authentication_api.schema import auth_schema
+from overview.index import app_view
 from fastapi_jwt_auth import AuthJWT
 from uploader import upload_file
 from ws.ws import ws
@@ -25,4 +26,7 @@ def include_router(app):
     )
     app.include_router(
         upload_file.file_router,
+    )
+    app.include_router(
+        app_view,
     )
