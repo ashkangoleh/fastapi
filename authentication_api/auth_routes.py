@@ -154,6 +154,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
         user_claims = {
             "user": {
                 "id": db_user.id,
+                "email":db_user.email,
                 "phone_number": db_user.phone_number,
                 "is_active": db_user.is_active,
                 "is_staff": db_user.is_staff,
@@ -208,6 +209,7 @@ async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requi
         user_claims = {
             "user": {
                 "id": db_user.id,
+                "email":db_user.email,
                 "phone_number": db_user.phone_number,
                 "is_active": db_user.is_active,
                 "is_staff": db_user.is_staff,
