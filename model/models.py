@@ -1,5 +1,6 @@
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql.sqltypes import JSON
+import sqlalchemy_utils
 from db.database import Base
 from sqlalchemy import (
     Boolean,
@@ -13,6 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy_utils import ChoiceType,URLType
 import datetime
+
 
 
 class User(Base):
@@ -88,6 +90,12 @@ class UserLog(Base):
 
 
 class UserProfile(Base):
+    TYPE = (
+        ("guest", "guest"),
+        ("normal", "normal"),
+        ("vip", "vip"),
+        ("pro", "pro"),
+    )
     __tablename__ = "user_profile"
     id = Column(Integer, primary_key=True)
     first_name = Column(String(255), nullable=False)
@@ -96,6 +104,7 @@ class UserProfile(Base):
     image = Column(URLType)
     postal_code = Column(String(25))
     national_code = Column(String(10))
+    type=Column(ChoiceType(TYPE),default="guest")
     user_id = Column(Integer, ForeignKey("user.id"))
     user = relationship('User', back_populates="user_profile")
 
