@@ -21,6 +21,7 @@ def include_router(app):
     )
     app.include_router(
         ws,
+        prefix="/ws/v1"
     )
     app.include_router(
         upload_file.file_router,
