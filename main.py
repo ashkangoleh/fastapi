@@ -5,6 +5,7 @@ from fastapi_jwt_auth.exceptions import AuthJWTException
 from fastapi import FastAPI, Request
 from authentication_api.schema import auth_schema
 from fastapi_jwt_auth import AuthJWT
+from db.init_db import init_db
 from settings.middleware import Middleware
 from settings.include_routers import include_router
 from db.database import redis_conn
@@ -107,6 +108,10 @@ def authjwt_exception_handler(request: Request, exc: AuthJWTException):
         status_code=exc.status_code,
         content={"detail": exc.message}
     )
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 
 if __name__ == "__main__":
