@@ -94,6 +94,8 @@ class UserProfile(Base):
     last_name = Column(String(255), nullable=False)
     address = Column(Text)
     image = Column(URLType)
+    postal_code = Column(String(25))
+    national_code = Column(String(10))
     user_id = Column(Integer, ForeignKey("user.id"))
     user = relationship('User', back_populates="user_profile")
 

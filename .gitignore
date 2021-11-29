@@ -4,3 +4,4 @@ venv
 .env
 psql
 media/*
+migrations/versions/*
