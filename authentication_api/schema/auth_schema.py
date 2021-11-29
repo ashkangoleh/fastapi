@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pydantic import BaseModel, EmailStr, ValidationError, validator
 from typing import Any, Optional, Dict, Text
 from utils import AuthHandler
@@ -91,6 +92,10 @@ class Settings(BaseModel):
     authjwt_secret_key: str = 'f00cc46cca11ba7fb31010c7435b8593267d8e973cf55e85d905083452246b20'
     authjwt_access_token: int = 300
     authjwt_refresh_token: int = 300  # 5min
+    authjwt_denylist_enabled: bool = True
+    authjwt_denylist_token_checks: set = {"access","refresh"}
+    access_expires: int = timedelta(minutes=15)
+    refresh_expires: int = timedelta(days=30)
     # authjwt_token_location: set = {"cookies"}
     # authjwt_cookie_csrf_protect: bool = False
 
