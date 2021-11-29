@@ -1,17 +1,14 @@
-import os
-import random
-from typing import Dict
 from fastapi import APIRouter, status, Depends, Body, Request, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
-from pydantic.types import DirectoryPath
-from db.database import session
+from db.database import session, redis_conn
 from utils import CBV, GeoIpLocation
 from .schema.auth_schema import (
     LoginModel,
     SignUpModel,
     ResetPassword,
     UserProfileSchema,
+    Settings
 )
 from model.models import (
     User,
@@ -25,6 +22,9 @@ from fastapi_jwt_auth import AuthJWT
 from utils import AuthHandler
 import secrets
 from PIL import Image
+import os
+import random
+from typing import Dict
 
 auth_router = APIRouter(
     prefix='/auth',
@@ -51,8 +51,6 @@ async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)):
     }
 
 # signup route
-
-
 @auth_router.post('/signup', response_model=SignUpModel)
 async def signUp(user: SignUpModel, response: Response):
     """user registration
@@ -185,8 +183,6 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
 
 
 # refresh token route
-
-
 @auth_router.get('/refresh')
 async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement)):
     """refresh token
@@ -229,7 +225,24 @@ async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requi
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="User is not active")
 
+#revoke access and refresh token
+@auth_router.delete('/access-revoke')
+def access_revoke(Authorize: str = Depends(AuthHandler.Token_requirement)):
+    Authorize.jwt_required()
 
+    jti = Authorize.get_raw_jwt()['jti']
+    redis_conn.setex(jti, Settings().access_expires, 'true')
+    return {"detail": "Access token has been revoke"}
+
+@auth_router.delete('/refresh-revoke')
+def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requirement)):
+    Authorize.jwt_refresh_token_required()
+
+    jti = Authorize.get_raw_jwt()['jti']
+    redis_conn.setex(jti, Settings().refresh_expires, 'true')
+    return {"detail": "Refresh token has been revoke"}
+
+#user change and reset password
 @wrapper_auth('/password')
 class ResetPassword():
 
@@ -335,7 +348,7 @@ class ResetPassword():
                 detail="User does not exist"
             )
 
-
+#user log
 @auth_router.get("/userlog")
 async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement)):
     current_user = Authorize.get_jwt_subject()
@@ -343,7 +356,7 @@ async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement)):
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
     return jsonable_encoder(data)
 
-
+#user profile
 @wrapper_auth('/profile')
 class Profile():
 
@@ -353,7 +366,8 @@ class Profile():
         current_user = _user.get_jwt_subject()
         db_user = session.query(User).filter(
             User.username == current_user).first()
-        db_profile = session.query(UserProfile).filter(UserProfile.user_id == db_user.id).first()
+        db_profile = session.query(UserProfile).filter(
+            UserProfile.user_id == db_user.id).first()
         if not db_profile:
             file_content = await file.read()
             generated_name = ""
@@ -424,7 +438,7 @@ class Profile():
                     "first_name": db_profile.first_name,
                     "last_name": db_profile.last_name,
                     "address": db_profile.address,
-                    "image":db_profile.image
+                    "image": db_profile.image
                 }
             )
 
