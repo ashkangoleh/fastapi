@@ -7,6 +7,7 @@ from authentication_api.schema import auth_schema
 from fastapi_jwt_auth import AuthJWT
 from settings.middleware import Middleware
 from settings.include_routers import include_router
+from db.database import redis_conn
 import uvicorn
 import re
 import inspect
@@ -94,6 +95,11 @@ include_router(app)
 def get_config():
     return auth_schema.Settings()
 
+@AuthJWT.token_in_denylist_loader
+def check_if_token_in_denylist(decrypted_token):
+    jti = decrypted_token['jti']
+    entry = redis_conn.get(jti)
+    return entry and entry == 'true'
 
 @app.exception_handler(AuthJWTException)
 def authjwt_exception_handler(request: Request, exc: AuthJWTException):
