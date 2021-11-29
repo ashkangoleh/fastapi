@@ -2,16 +2,11 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from fastapi.openapi.utils import get_openapi
 from fastapi_jwt_auth.exceptions import AuthJWTException
-from fastapi import FastAPI,Request
-from authentication_api.auth_routes import auth_router
-from order_api.order_routes import order_router
+from fastapi import FastAPI, Request
 from authentication_api.schema import auth_schema
 from fastapi_jwt_auth import AuthJWT
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.middleware.cors import CORSMiddleware
-from uploader import upload_file
-from fastapi.staticfiles import StaticFiles
-from ws.ws import ws
+from settings.middleware import Middleware
+from settings.include_routers import include_router
 import uvicorn
 import re
 import inspect
@@ -38,24 +33,7 @@ app = FastAPI(
     debug=True,
     openapi_tags=tags_metadata
 )
-ORIGINS = [
-    "http://localhost",
-    "http://localhost:8080",
-]
-ALLOWED_HOSTS = [
-    "*",
-]
-app.add_middleware(
-    TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS,
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.mount("/media", StaticFiles(directory="media"), name="media")
+
 
 def custom_openapi():
     if app.openapi_schema:
@@ -105,9 +83,17 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
+middleware = Middleware(app)
+middleware.cors_origins()
+middleware.staticFiles()
+middleware.allowed_domains()
+include_router(app)
+
+
 @AuthJWT.load_config
 def get_config():
     return auth_schema.Settings()
+
 
 @app.exception_handler(AuthJWTException)
 def authjwt_exception_handler(request: Request, exc: AuthJWTException):
@@ -116,21 +102,6 @@ def authjwt_exception_handler(request: Request, exc: AuthJWTException):
         content={"detail": exc.message}
     )
 
-app.include_router(
-    auth_router,
-    prefix="/api/v1",
-)
-app.include_router(
-    order_router,
-    prefix="/api/v1"
-)
-app.include_router(
-    ws,
-)
-app.include_router(
-    upload_file.file_router,
-)
-
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True,workers=30)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, workers=30)
