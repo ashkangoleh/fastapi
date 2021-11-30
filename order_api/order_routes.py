@@ -1,6 +1,6 @@
 from typing import Any, Dict
 from fastapi import APIRouter, status, Depends
-from fastapi import responses,Body
+from fastapi import responses, Body
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.sql.functions import current_user, user
 from starlette.routing import Router
@@ -9,9 +9,10 @@ from utils import AuthHandler
 from .schema import order_schema
 from model.models import User, Order
 from fastapi_jwt_auth import AuthJWT
-from db.database import session
+from db.database import get_db
 from fastapi.exceptions import HTTPException
-from fastapi.responses import Response,JSONResponse
+from fastapi.responses import Response, JSONResponse
+from db import Session
 
 order_router = APIRouter(
     prefix='/order',
@@ -26,19 +27,20 @@ async def hello():
         "message": "This is Order route"
     }
 
+
 @order_router.get('/a')
-async def hello1(request:Any=Body(...)):
+async def hello1(request: Any = Body(...)):
     # use operations for digits in string from json or objects(dict)
     data = request.get('test')
     s = "".join([i for i in data])
     return {
         "message": "This is Order route",
-        "data":eval(s)
+        "data": eval(s)
     }
 
 
 @order_router.post('/order')
-async def place_an_order(order: order_schema.OrderModel, response: Response, _user = Depends(Auth.authorize())):
+async def place_an_order(order: order_schema.OrderModel, response: Response, _user=Depends(Auth.authorize()), db: Session = Depends(get_db)):
     """place an order
 
     Args:
@@ -71,7 +73,7 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, _us
     """
     current_user = _user.get_jwt_subject()
 
-    user = session.query(User).filter(User.username == current_user).first()
+    user = db.query(User).filter(User.username == current_user).first()
 
     if user.is_active:
         new_order = Order(
@@ -81,8 +83,8 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, _us
 
         new_order.user = user
 
-        session.add(new_order)
-        session.commit()
+        db.add(new_order)
+        db.commit()
         response.status_code = status.HTTP_201_CREATED
         resp = {
             "order_size": new_order.order_sizes,
@@ -98,8 +100,10 @@ async def place_an_order(order: order_schema.OrderModel, response: Response, _us
         )
 
 # list of orders
+
+
 @order_router.get('/order_list')
-async def list_orders(_user = Depends(Auth.authorize())):
+async def list_orders(_user=Depends(Auth.authorize()), db: Session = Depends(get_db)):
     """list of orders
 
     Args:
@@ -119,9 +123,9 @@ async def list_orders(_user = Depends(Auth.authorize())):
         ]
     """
     current_user = _user.get_jwt_subject()
-    user = session.query(User).filter(User.username == current_user).first()
+    user = db.query(User).filter(User.username == current_user).first()
     if user.is_active:
-        orders = session.query(Order).all()
+        orders = db.query(Order).all()
         return jsonable_encoder(orders)
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -131,7 +135,7 @@ async def list_orders(_user = Depends(Auth.authorize())):
 
 
 @order_router.get('/orders/{id}')
-async def get_order_by_id(id: int, _user: str = Depends(Auth.authorize)):
+async def get_order_by_id(id: int, _user: str = Depends(Auth.authorize), db: Session = Depends(get_db)):
     """get order by ID
 
     Args:
@@ -151,10 +155,10 @@ async def get_order_by_id(id: int, _user: str = Depends(Auth.authorize)):
     """
     current_user = _user.get_jwt_subject()
 
-    user = session.query(User).filter(User.username == current_user).first()
+    user = db.query(User).filter(User.username == current_user).first()
 
     if user.is_active:
-        order = session.query(Order).filter(Order.id == id).first()
+        order = db.query(Order).filter(Order.id == id).first()
         return jsonable_encoder(order)
 
     raise HTTPException(
@@ -166,7 +170,7 @@ async def get_order_by_id(id: int, _user: str = Depends(Auth.authorize)):
 
 
 @order_router.get('/user/orders')
-async def list_orders(_user: str = Depends(Auth.authorize)):
+async def list_orders(_user: str = Depends(Auth.authorize), db: Session = Depends(get_db)):
     """user order list
 
     Args:
@@ -184,7 +188,7 @@ async def list_orders(_user: str = Depends(Auth.authorize)):
     """
     current_user = _user.get_jwt_subject()
 
-    user = session.query(User).filter(User.username == current_user).first()
+    user = db.query(User).filter(User.username == current_user).first()
 
     if user.is_active:
         order = user.orders
@@ -204,7 +208,7 @@ async def list_orders(_user: str = Depends(Auth.authorize)):
 
 
 @order_router.get('/user/order/{id}')
-async def get_user_specific_order(id: int, _user: str = Depends(Auth.authorize)):
+async def get_user_specific_order(id: int, _user: str = Depends(Auth.authorize), db: Session = Depends(get_db)):
     """get specific order by ID
 
     Args:
@@ -223,7 +227,7 @@ async def get_user_specific_order(id: int, _user: str = Depends(Auth.authorize))
         }
     """
     current_user = _user.get_jwt_subject()
-    user = session.query(User).filter(User.username == current_user).first()
+    user = db.query(User).filter(User.username == current_user).first()
     if user.is_active:
         orders = user.orders
 
@@ -243,7 +247,7 @@ async def get_user_specific_order(id: int, _user: str = Depends(Auth.authorize))
 
 
 @order_router.patch('/{id}')
-async def update_order(id: int, order: order_schema.OrderModel,response:Response, _user: str = Depends(Auth.authorize)):
+async def update_order(id: int, order: order_schema.OrderModel, response: Response, _user: str = Depends(Auth.authorize), db: Session = Depends(get_db)):
     """update order
 
     Args:
@@ -267,14 +271,14 @@ async def update_order(id: int, order: order_schema.OrderModel,response:Response
         }
     """
     current_user = _user.get_jwt_subject()
-    user = session.query(User).filter(User.username == current_user).first()
+    user = db.query(User).filter(User.username == current_user).first()
 
     if user.is_active or user.is_staff:
-        order_update = session.query(Order).filter(Order.id == id).first()
+        order_update = db.query(Order).filter(Order.id == id).first()
         if order_update.order_status == "PENDING":
             order_update.quantity = order.quantity
             order_update.order_sizes = order.order_sizes
-            session.commit()
+            db.commit()
             resp = {
                 "id": order_update.id,
                 "quantity": order_update.quantity,
@@ -292,7 +296,7 @@ async def update_order(id: int, order: order_schema.OrderModel,response:Response
 
 # update order status
 @order_router.patch('/status/{id}')
-async def update_order_status(id: int, order: order_schema.OrderStatusModel,response:Response, _user: str = Depends(Auth.authorize)):
+async def update_order_status(id: int, order: order_schema.OrderStatusModel, response: Response, _user: str = Depends(Auth.authorize), db: Session = Depends(get_db)):
     """update status order
 
     Args:
@@ -316,14 +320,14 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel,resp
     """
     current_user = _user.get_jwt_subject()
 
-    user = session.query(User).filter(User.username == current_user).first()
+    user = db.query(User).filter(User.username == current_user).first()
 
     if user.is_staff:
-        update_order_status = session.query(
+        update_order_status = db.query(
             Order).filter(Order.id == id).first()
         if update_order_status:
             update_order_status.order_status = order.order_status
-            session.commit()
+            db.commit()
             resp = {
                 "id": update_order_status.id,
                 "quantity": update_order_status.quantity,
@@ -341,7 +345,7 @@ async def update_order_status(id: int, order: order_schema.OrderStatusModel,resp
 
 # delete order
 @order_router.delete('/{id}')
-async def delete_order(id: int,response:Response, _user: str = Depends(Auth.authorize)):
+async def delete_order(id: int, response: Response, _user: str = Depends(Auth.authorize), db: Session = Depends(get_db)):
     """delete order
 
     Args:
@@ -362,19 +366,19 @@ async def delete_order(id: int,response:Response, _user: str = Depends(Auth.auth
     """
     current_user = _user.get_jwt_subject()
 
-    user = session.query(User).filter(User.username == current_user).first()
+    user = db.query(User).filter(User.username == current_user).first()
 
     # if user.is_staff:
     if user:
-        order_to_delete = session.query(Order).filter(Order.id == id).first()
+        order_to_delete = db.query(Order).filter(Order.id == id).first()
         if order_to_delete:
-            session.delete(order_to_delete)
-            session.commit()
+            db.delete(order_to_delete)
+            db.commit()
             resp = {
                 "id": order_to_delete.id,
                 "detail": "Order has been deleted"
             }
-            response.status_code = status_code=status.HTTP_201_CREATED
+            response.status_code = status_code = status.HTTP_201_CREATED
             return jsonable_encoder(resp)
         else:
             raise HTTPException(

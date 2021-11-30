@@ -82,10 +82,14 @@ class UserProfileSchema(BaseModel):
     last_name: str
     address: Optional[Text]
     image: Optional[str]
+    postal_code: Optional[str]
+    national_code: Optional[int]
+
 
     @classmethod
-    def as_form(cls, first_name: str = Form(...), last_name: str = Form(...), address: Optional[Text] = Form(...),):
-        return cls(first_name=first_name, last_name=last_name, address=address)
+    def as_form(cls, first_name: str = Form(...), last_name: str = Form(...), address: Optional[Text] = Form(...), postal_code: Optional[str] = Form(...),
+                national_code: Optional[str] = Form(...)):
+        return cls(first_name=first_name, last_name=last_name, address=address, postal_code=postal_code, national_code=national_code)
 
 
 class Settings(BaseModel):
@@ -93,7 +97,7 @@ class Settings(BaseModel):
     authjwt_access_token: int = 300
     authjwt_refresh_token: int = 300  # 5min
     authjwt_denylist_enabled: bool = True
-    authjwt_denylist_token_checks: set = {"access","refresh"}
+    authjwt_denylist_token_checks: set = {"access", "refresh"}
     access_expires: int = timedelta(minutes=15)
     refresh_expires: int = timedelta(days=30)
     # authjwt_token_location: set = {"cookies"}

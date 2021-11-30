@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status, Depends, Body, Request, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
-from db.database import session, redis_conn
+from db.database import get_db, redis_conn
 from utils import CBV, GeoIpLocation
 from .schema.auth_schema import (
     LoginModel,
@@ -25,6 +25,7 @@ from PIL import Image
 import os
 import random
 from typing import Dict
+from db import Session
 
 auth_router = APIRouter(
     prefix='/auth',
@@ -51,6 +52,8 @@ async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)):
     }
 
 # signup route
+
+
 @auth_router.post('/signup', response_model=SignUpModel)
 async def signUp(user: SignUpModel, response: Response):
     """user registration
@@ -80,10 +83,10 @@ async def signUp(user: SignUpModel, response: Response):
             "is_active": boolean
         }
     """
-    db_email = session.query(User).filter(User.email == user.email).first()
-    db_username = session.query(User).filter(
+    db_email = db.query(User).filter(User.email == user.email).first()
+    db_username = db.query(User).filter(
         User.username == user.username).first()
-    db_phone_number = session.query(User).filter(
+    db_phone_number = db.query(User).filter(
         User.phone_number == user.phone_number).first()
     if db_email is not None:
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -113,8 +116,8 @@ async def signUp(user: SignUpModel, response: Response):
     }
     new_user = User(**user_dict)
     user.password2 = user.hashed_password()
-    session.add(new_user)
-    session.commit()
+    db.add(new_user)
+    db.commit()
     resp = {
         "status": "success",
         "message": "User created successfully",
@@ -124,7 +127,7 @@ async def signUp(user: SignUpModel, response: Response):
 
 # login route
 @auth_router.post('/login')
-async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends()):
+async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends(),db:Session=Depends(get_db)):
     """user login
 
     Args:
@@ -148,13 +151,13 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
         }
 
     """
-    db_user = session.query(User).filter(
+    db_user = db.query(User).filter(
         User.username == user.username).first()
     if db_user and AuthHandler.verify_password(db_user.password, user.password):
         user_claims = {
             "user": {
                 "id": db_user.id,
-                "email":db_user.email,
+                "email": db_user.email,
                 "phone_number": db_user.phone_number,
                 "is_active": db_user.is_active,
                 "is_staff": db_user.is_staff,
@@ -168,12 +171,12 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
         geo = await GeoIpLocation(ip_loc)
         if geo['status'] != "fail":
             geoLoc = UserLog(user_id=db_user.id, user_log=geo)
-            session.add(geoLoc)
-            session.commit()
+            db.add(geoLoc)
+            db.commit()
         else:
             geoLoc = UserLog(user_id=db_user.id, user_log={"query": ip_loc})
-            session.add(geoLoc)
-            session.commit()
+            db.add(geoLoc)
+            db.commit()
         resp = {
             "access_token": access_token,
             "refresh_token": refresh_token
@@ -185,7 +188,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
 
 # refresh token route
 @auth_router.get('/refresh')
-async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement)):
+async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement),db:Session=Depends(get_db)):
     """refresh token
 
     Args:
@@ -204,12 +207,12 @@ async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requi
         }
     """
     current_user = Authorize.get_jwt_subject()
-    db_user = session.query(User).filter(User.username == current_user).first()
+    db_user = db.query(User).filter(User.username == current_user).first()
     if db_user.is_active:
         user_claims = {
             "user": {
                 "id": db_user.id,
-                "email":db_user.email,
+                "email": db_user.email,
                 "phone_number": db_user.phone_number,
                 "is_active": db_user.is_active,
                 "is_staff": db_user.is_staff,
@@ -227,7 +230,9 @@ async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requi
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="User is not active")
 
-#revoke access and refresh token
+# revoke access and refresh token
+
+
 @auth_router.delete('/access-revoke')
 def access_revoke(Authorize: str = Depends(AuthHandler.Token_requirement)):
     Authorize.jwt_required()
@@ -235,6 +240,7 @@ def access_revoke(Authorize: str = Depends(AuthHandler.Token_requirement)):
     jti = Authorize.get_raw_jwt()['jti']
     redis_conn.setex(jti, Settings().access_expires, 'true')
     return {"detail": "Access token has been revoke"}
+
 
 @auth_router.delete('/refresh-revoke')
 def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requirement)):
@@ -244,19 +250,21 @@ def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requiremen
     redis_conn.setex(jti, Settings().refresh_expires, 'true')
     return {"detail": "Refresh token has been revoke"}
 
-#user change and reset password
+# user change and reset password
+
+
 @wrapper_auth('/password')
 class ResetPassword():
 
-    def get(request: Dict = Body(...)):
-        db_user = session.query(User).filter(
+    def get(request: Dict = Body(...),db:Session=Depends(get_db)):
+        db_user = db.query(User).filter(
             User.username == request['username']).first()
         if db_user:
             if db_user.is_active:
                 random_code = random.randint(1000, 9999)
                 code = CVN(user_id=db_user.id, code=str(random_code))
-                session.add(code)
-                session.commit()
+                db.add(code)
+                db.commit()
                 response = {
                     "status": "success",
                     "message": "verify code already send"
@@ -271,10 +279,10 @@ class ResetPassword():
                 detail="User not found"
             )
 
-    def post(request: ResetPassword):
-        db_user = session.query(User).filter(
+    def post(request: ResetPassword,db:Session=Depends(get_db)):
+        db_user = db.query(User).filter(
             User.username == request.username).first()
-        verify_code = session.query(CVN).filter(
+        verify_code = db.query(CVN).filter(
             User.username == request.username).order_by(CVN.id.desc()).first()
         if db_user:
             if db_user.is_active:
@@ -283,7 +291,7 @@ class ResetPassword():
                         if verify_code.code == request.code:
                             db_user.password = request.hashed_password()
                             verify_code.validation = False
-                            session.commit()
+                            db.commit()
                             resp = {
                                 "status": "success",
                                 "message": "Password changed successfully"
@@ -313,8 +321,8 @@ class ResetPassword():
                 detail="User does not exist"
             )
 
-    def patch(response: Response, request: Dict = Body(...)):
-        db_user = session.query(User).filter(
+    def patch(response: Response, request: Dict = Body(...),db:Session=Depends(get_db)):
+        db_user = db.query(User).filter(
             User.username == request['username']).first()
         if db_user:
             if db_user.is_active:
@@ -323,7 +331,7 @@ class ResetPassword():
                         request['new_password'])
                     if not AuthHandler.verify_password(db_user.password, request['new_password']):
                         db_user.password = new_password
-                        session.commit()
+                        db.commit()
                         response = {
                             "status": "success",
                             "message": f"{db_user.username} password changed"
@@ -350,25 +358,29 @@ class ResetPassword():
                 detail="User does not exist"
             )
 
-#user log
+# user log
+
+
 @auth_router.get("/userlog")
-async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement)):
-    current_user = Authorize.get_jwt_subject()
-    db_log = session.query(UserLog).filter(User.username == current_user).order_by(UserLog.id.desc()).all()[:10]
+async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement),db:Session=Depends(get_db)):
+    current_user = Authorize.get_raw_jwt()['user']['id']
+    db_log = db.query(UserLog).filter(UserLog.user_id == current_user).order_by(UserLog.id.desc()).all()[:10]
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
     return jsonable_encoder(data)
 
-#user profile
+# user profile
+
+
 @wrapper_auth('/profile')
 class Profile():
 
     # def post(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
     #             with form data
-    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...), _user=Depends(AuthHandler.Token_requirement)):
+    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...), _user=Depends(AuthHandler.Token_requirement),db:Session=Depends(get_db)):
         current_user = _user.get_jwt_subject()
-        db_user = session.query(User).filter(
+        db_user = db.query(User).filter(
             User.username == current_user).first()
-        db_profile = session.query(UserProfile).filter(
+        db_profile = db.query(UserProfile).filter(
             UserProfile.user_id == db_user.id).first()
         if not db_profile:
             file_content = await file.read()
@@ -401,10 +413,12 @@ class Profile():
                         first_name=profile.first_name,
                         last_name=profile.last_name,
                         address=profile.address,
-                        image=profile.image
+                        image=profile.image,
+                        postal_code=profile.postal_code,
+                        national_code=profile.national_code,
                     )
-                    session.add(user_profile)
-                    session.commit()
+                    db.add(user_profile)
+                    db.commit()
                     response = {
                         "user": db_user.username,
                         "first_name": profile.first_name,
@@ -429,9 +443,9 @@ class Profile():
                 detail="User profile already exists"
             )
 
-    def get(_user=Depends(AuthHandler.Token_requirement)):
+    def get(_user=Depends(AuthHandler.Token_requirement),db:Session=Depends(get_db)):
         user_id = _user.get_raw_jwt()['user']['id']
-        db_profile = session.query(UserProfile).filter(
+        db_profile = db.query(UserProfile).filter(
             UserProfile.user_id == user_id).first()
         if db_profile:
             return jsonable_encoder(
@@ -444,15 +458,15 @@ class Profile():
                 }
             )
 
-    def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
+    def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement),db:Session=Depends(get_db)):
         user_id = _user.get_raw_jwt()['user']['id']
-        db_profile = session.query(UserProfile).filter(
+        db_profile = db.query(UserProfile).filter(
             UserProfile.user_id == user_id).first()
         if db_profile:
             db_profile.first_name = profile.first_name
             db_profile.last_name = profile.last_name
             db_profile.address = profile.address
-            session.commit()
+            db.commit()
             return jsonable_encoder({
                 "status": "success",
                 "message": f"{db_profile.user.username}'s profile updated"
