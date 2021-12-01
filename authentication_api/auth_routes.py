@@ -27,11 +27,18 @@ import random
 from typing import Dict
 from db import Session
 
+
+
 auth_router = APIRouter(
     prefix='/auth',
     tags=['Authentication']
 )
 wrapper_auth = CBV(auth_router)
+
+async def get_current_user(token: str = Depends(AuthHandler.Token_requirement)):
+    username =token.get_jwt_subject()
+    user = token.get_raw_jwt()[username]
+    return user
 
 
 @auth_router.get('/')
@@ -155,7 +162,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
         User.username == user.username).first()
     if db_user and AuthHandler.verify_password(db_user.password, user.password):
         user_claims = {
-            "user": {
+            db_user.username: {
                 "id": db_user.id,
                 "email": db_user.email,
                 "phone_number": db_user.phone_number,
@@ -210,7 +217,7 @@ async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requi
     db_user = db.query(User).filter(User.username == current_user).first()
     if db_user.is_active:
         user_claims = {
-            "user": {
+            db_user.username: {
                 "id": db_user.id,
                 "email": db_user.email,
                 "phone_number": db_user.phone_number,
@@ -362,10 +369,9 @@ class ResetPassword():
 
 
 @auth_router.get("/userlog")
-async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement), db: Session = Depends(get_db)):
-    current_user = Authorize.get_raw_jwt()['user']['id']
+async def user_log(db: Session = Depends(get_db),current_user:User=Depends(get_current_user)):
     db_log = db.query(UserLog).filter(UserLog.user_id ==
-                                      current_user).order_by(UserLog.id.desc()).all()[:10]
+                                      current_user['id']).order_by(UserLog.id.desc()).all()[:10]
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
     return jsonable_encoder(data)
 
