@@ -55,7 +55,7 @@ async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)):
 
 
 @auth_router.post('/signup', response_model=SignUpModel)
-async def signUp(user: SignUpModel, response: Response):
+async def signUp(user: SignUpModel, response: Response, db: Session = Depends(get_db)):
     """user registration
 
     Args:
@@ -127,7 +127,7 @@ async def signUp(user: SignUpModel, response: Response):
 
 # login route
 @auth_router.post('/login')
-async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends(),db:Session=Depends(get_db)):
+async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
     """user login
 
     Args:
@@ -188,7 +188,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
 
 # refresh token route
 @auth_router.get('/refresh')
-async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement),db:Session=Depends(get_db)):
+async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement), db: Session = Depends(get_db)):
     """refresh token
 
     Args:
@@ -256,7 +256,7 @@ def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requiremen
 @wrapper_auth('/password')
 class ResetPassword():
 
-    def get(request: Dict = Body(...),db:Session=Depends(get_db)):
+    def get(request: Dict = Body(...), db: Session = Depends(get_db)):
         db_user = db.query(User).filter(
             User.username == request['username']).first()
         if db_user:
@@ -279,7 +279,7 @@ class ResetPassword():
                 detail="User not found"
             )
 
-    def post(request: ResetPassword,db:Session=Depends(get_db)):
+    def post(request: ResetPassword, db: Session = Depends(get_db)):
         db_user = db.query(User).filter(
             User.username == request.username).first()
         verify_code = db.query(CVN).filter(
@@ -321,7 +321,7 @@ class ResetPassword():
                 detail="User does not exist"
             )
 
-    def patch(response: Response, request: Dict = Body(...),db:Session=Depends(get_db)):
+    def patch(response: Response, request: Dict = Body(...), db: Session = Depends(get_db)):
         db_user = db.query(User).filter(
             User.username == request['username']).first()
         if db_user:
@@ -362,9 +362,10 @@ class ResetPassword():
 
 
 @auth_router.get("/userlog")
-async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement),db:Session=Depends(get_db)):
+async def user_log(Authorize: str = Depends(AuthHandler.Token_requirement), db: Session = Depends(get_db)):
     current_user = Authorize.get_raw_jwt()['user']['id']
-    db_log = db.query(UserLog).filter(UserLog.user_id == current_user).order_by(UserLog.id.desc()).all()[:10]
+    db_log = db.query(UserLog).filter(UserLog.user_id ==
+                                      current_user).order_by(UserLog.id.desc()).all()[:10]
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
     return jsonable_encoder(data)
 
@@ -376,7 +377,7 @@ class Profile():
 
     # def post(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
     #             with form data
-    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...), _user=Depends(AuthHandler.Token_requirement),db:Session=Depends(get_db)):
+    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...), _user=Depends(AuthHandler.Token_requirement), db: Session = Depends(get_db)):
         current_user = _user.get_jwt_subject()
         db_user = db.query(User).filter(
             User.username == current_user).first()
@@ -443,7 +444,7 @@ class Profile():
                 detail="User profile already exists"
             )
 
-    def get(_user=Depends(AuthHandler.Token_requirement),db:Session=Depends(get_db)):
+    def get(_user=Depends(AuthHandler.Token_requirement), db: Session = Depends(get_db)):
         user_id = _user.get_raw_jwt()['user']['id']
         db_profile = db.query(UserProfile).filter(
             UserProfile.user_id == user_id).first()
@@ -458,7 +459,7 @@ class Profile():
                 }
             )
 
-    def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement),db:Session=Depends(get_db)):
+    def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement), db: Session = Depends(get_db)):
         user_id = _user.get_raw_jwt()['user']['id']
         db_profile = db.query(UserProfile).filter(
             UserProfile.user_id == user_id).first()
