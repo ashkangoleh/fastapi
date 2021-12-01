@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Depends, Body, Request, UploadFile, File
+from fastapi import APIRouter, status, Depends, Body, Request, UploadFile, File,Security
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
 from db.database import get_db, redis_conn
@@ -369,7 +369,7 @@ class ResetPassword():
 
 
 @auth_router.get("/userlog")
-async def user_log(db: Session = Depends(get_db),current_user:User=Depends(get_current_user)):
+async def user_log(db: Session = Depends(get_db),current_user:User=Security(get_current_user)):
     db_log = db.query(UserLog).filter(UserLog.user_id ==
                                       current_user['id']).order_by(UserLog.id.desc()).all()[:10]
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
@@ -383,10 +383,9 @@ class Profile():
 
     # def post(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
     #             with form data
-    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...), _user=Depends(AuthHandler.Token_requirement), db: Session = Depends(get_db)):
-        current_user = _user.get_jwt_subject()
+    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...),current_user:User=Security(get_current_user), db: Session = Depends(get_db)):
         db_user = db.query(User).filter(
-            User.username == current_user).first()
+            User.id == current_user['id']).first()
         db_profile = db.query(UserProfile).filter(
             UserProfile.user_id == db_user.id).first()
         if not db_profile:
@@ -450,10 +449,11 @@ class Profile():
                 detail="User profile already exists"
             )
 
-    def get(_user=Depends(AuthHandler.Token_requirement), db: Session = Depends(get_db)):
-        user_id = _user.get_raw_jwt()['user']['id']
+    def get(current_user:User=Security(get_current_user), db: Session = Depends(get_db)):
+        # user_id = _user.get_raw_jwt()['user']['id']
+        print(current_user.get("id"))
         db_profile = db.query(UserProfile).filter(
-            UserProfile.user_id == user_id).first()
+            UserProfile.user_id == current_user['id']).first()
         if db_profile:
             return jsonable_encoder(
                 {
@@ -463,6 +463,11 @@ class Profile():
                     "address": db_profile.address,
                     "image": db_profile.image
                 }
+            )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="user does not exists",
             )
 
     def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement), db: Session = Depends(get_db)):
