@@ -12,6 +12,9 @@
     <img src="{{url_for('static',path='fastapi.png')}}" alt="" srcset="">
     <h1>{{title}}</h1>
     <p>{{overview}}</p>
+    <video width="1200" controls muted="muted">
+        <source src="http://localhost:8000/video" type="video/mp4" />
+    </video>
 </body>
 
 </html>
