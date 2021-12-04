@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Request,Header,Response
+from fastapi.exceptions import HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 import os
 from pathlib import Path
 from fastapi.templating import Jinja2Templates
+import threading   
 app_view = APIRouter()
 
 TEMPLATES = Jinja2Templates(directory="templates")
@@ -32,3 +34,20 @@ async def video_endpoint(range: str = Header(None)):
             'Accept-Ranges': 'bytes'
         }
         return Response(data, status_code=206, headers=headers, media_type="video/mp4")
+    
+    
+    
+counter = 0
+lock = threading.Lock()
+@app_view.get("/test")
+def do_something():
+    global counter
+
+    with lock:
+        counter += 1
+        if counter >= 3:
+            raise HTTPException(
+                status_code=400,
+                detail="stop spam"
+            )
+    return {"message": "Hello World"}
