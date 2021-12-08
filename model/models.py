@@ -74,7 +74,13 @@ class CodeVerification(Base):
 
     def __repr__(self):
         return f"<code for {self.id}>"
-
+    
+    @staticmethod
+    def old_code_remover(db):
+        old = datetime.datetime.now()-datetime.timedelta(days=1)
+        old_code = db.query(CodeVerification).filter(CodeVerification.expiration_time < old).all()
+        for olds in old_code:
+            db.delete(olds)
 
 class UserLog(Base):
     __tablename__ = "users_log"
@@ -86,7 +92,7 @@ class UserLog(Base):
 
     def __repr__(self):
         return f"<code for {self.id}>"
-
+    
 
 class UserProfile(Base):
     TYPE = (
@@ -109,3 +115,8 @@ class UserProfile(Base):
 
     def __repr__(self):
         return f"<code for {self.id}"
+
+
+
+
+        
