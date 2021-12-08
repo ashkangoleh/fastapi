@@ -1,6 +1,5 @@
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql.sqltypes import JSON
-import sqlalchemy_utils
 from db.database import Base
 from sqlalchemy import (
     Boolean,
