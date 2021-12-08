@@ -1,4 +1,15 @@
-from fastapi import APIRouter, status, Depends, Body, Request, UploadFile, File, Security, BackgroundTasks
+from fastapi import (
+    APIRouter,
+    status,
+    Depends,
+    Body,
+    Request,
+    UploadFile,
+    File,
+    Security,
+    BackgroundTasks,
+    Query
+)
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
 from db.database import get_db, redis_conn
@@ -9,7 +20,8 @@ from .schema.auth_schema import (
     SignUpModel,
     ResetPassword,
     UserProfileSchema,
-    Settings
+    Settings,
+    GetCodeSchema,
 )
 from model.models import (
     User,
@@ -264,20 +276,38 @@ def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requiremen
 @wrapper_auth('/password')
 class ResetPassword():
 
-    def get(request: Dict = Body(...), db: Session = Depends(get_db)):
+    async def get(query:GetCodeSchema=Depends(), db: Session = Depends(get_db)):
+        CVN.old_code_remover(db)
         db_user = db.query(User).filter(
-            User.username == request['username']).first()
+            User.username == query.username).first()
         if db_user:
             if db_user.is_active:
                 random_code = random.randint(1000, 9999)
-                code = CVN(user_id=db_user.id, code=str(random_code))
-                db.add(code)
-                db.commit()
-                response = {
-                    "status": "success",
-                    "message": "verify code already send"
-                }
-                return JSONResponse(content=response, status_code=status.HTTP_200_OK)
+                if query.plan == 'email':
+                    code = CVN(user_id=db_user.id, code=str(random_code))
+                    db.add(code)
+                    db.commit()
+                    response = {
+                        "status": "success",
+                        "message": "verify code already send"
+                    }
+                    await send_email_async(
+                        subject="Verify Code",
+                        email_to=[db_user.email],
+                        body={
+                            "title":f"{db_user.username}",
+                            "name":f"verify code is: {random_code}"
+                        }
+                    )
+                    return JSONResponse(status_code=200, content={"message": "email has been sent"})
+                elif  query.plan == 'mobile':
+                    code = CVN(user_id=db_user.id, code=str(random_code))
+                    db.add(code)
+                    db.commit()
+                    return JSONResponse(status_code=200, content={"message": "sms has been sent"})
+                else:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="query params not valid")
             else:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                     detail="User is not active")

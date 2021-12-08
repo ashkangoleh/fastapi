@@ -107,3 +107,8 @@ class Settings(BaseModel):
 class LoginModel(BaseModel):
     username: str
     password: str
+
+
+class GetCodeSchema(BaseModel):
+    username:str
+    plan:str= "email"
