@@ -13,7 +13,7 @@ services:
   psql:
     hostname: fast_psql
     image: postgres
-    restart: always
+    restart: on_failure:3
     ports:
       - "5432:5432"
     volumes:
