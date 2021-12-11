@@ -12,7 +12,6 @@ from fastapi import (
 )
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, JSONResponse
-from db.database import get_db, redis_conn
 from utils import CBV, GeoIpLocation
 from utils.mail_service.mail_service import EmailSchema, send_email_async
 from .schema.auth_schema import (
@@ -38,7 +37,7 @@ from PIL import Image
 import os
 import random
 from typing import Dict
-from db import Session
+from db import get_db,get_session,redis_client
 
 
 auth_router = APIRouter(
@@ -75,7 +74,7 @@ async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)):
 
 
 @auth_router.post('/signup', response_model=SignUpModel)
-async def signUp(user: SignUpModel, response: Response, db: Session = Depends(get_db)):
+async def signUp(user: SignUpModel, response: Response, db: get_session = Depends(get_db)):
     """user registration
 
     Args:
@@ -147,7 +146,12 @@ async def signUp(user: SignUpModel, response: Response, db: Session = Depends(ge
 
 # login route
 @auth_router.post('/login')
-async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
+async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends(),
+                ####################### query with async
+                # db: Asyncget_session = Depends(get_db) 
+                ####################### none async query
+                db: get_session = Depends(get_db)  
+                ):
     """user login
 
     Args:
@@ -171,8 +175,11 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
         }
 
     """
-    db_user = db.query(User).filter(
-        User.username == user.username).first()
+    ####################### normal query
+    db_user = db.query(User).filter(User.username == user.username).first()
+    ####################### async query
+    # db_user = (await db.execute(select(User).where(
+    #     User.username == user.username))).scalars().first()
     if db_user and AuthHandler.verify_password(db_user.password, user.password):
         user_claims = {
             db_user.username: {
@@ -190,13 +197,23 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
         ip_loc = request.client.host
         geo = await GeoIpLocation(ip_loc)
         if geo['status'] != "fail":
+            #######################none async query
             geoLoc = UserLog(user_id=db_user.id, user_log=geo)
             db.add(geoLoc)
             db.commit()
+            #######################async query
+            # geoLoc = UserLog(user_id=db_user.id, user_log={"query": ip_loc})
+            # db.add(geoLoc)
+            # await db.commit()
         else:
-            geoLoc = UserLog(user_id=db_user.id, user_log={"query": ip_loc})
+            #######################none async query
+            geoLoc = UserLog(user_id=db_user.id, user_log=geo)
             db.add(geoLoc)
             db.commit()
+            #######################async query
+            # geoLoc = UserLog(user_id=db_user.id, user_log={"query": ip_loc})
+            # db.add(geoLoc)
+            # await db.commit()
         resp = {
             "access_token": access_token,
             "refresh_token": refresh_token
@@ -208,7 +225,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
 
 # refresh token route
 @auth_router.get('/refresh')
-async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement), db: Session = Depends(get_db)):
+async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement), db: get_session = Depends(get_db)):
     """refresh token
 
     Args:
@@ -258,7 +275,7 @@ def access_revoke(Authorize: str = Depends(AuthHandler.Token_requirement)):
     Authorize.jwt_required()
 
     jti = Authorize.get_raw_jwt()['jti']
-    redis_conn.setex(jti, Settings().access_expires, 'true')
+    redis_client.setex(jti, Settings().access_expires, 'true')
     return {"detail": "Access token has been revoke"}
 
 
@@ -267,7 +284,7 @@ def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requiremen
     Authorize.jwt_refresh_token_required()
 
     jti = Authorize.get_raw_jwt()['jti']
-    redis_conn.setex(jti, Settings().refresh_expires, 'true')
+    redis_client.setex(jti, Settings().refresh_expires, 'true')
     return {"detail": "Refresh token has been revoke"}
 
 # user change and reset password
@@ -276,7 +293,7 @@ def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requiremen
 @wrapper_auth('/password')
 class ResetPassword():
 
-    async def get(query:GetCodeSchema=Depends(), db: Session = Depends(get_db)):
+    async def get(query: GetCodeSchema = Depends(), db: get_session = Depends(get_db)):
         CVN.old_code_remover(db)
         db_user = db.query(User).filter(
             User.username == query.username).first()
@@ -295,19 +312,19 @@ class ResetPassword():
                         subject="Verify Code",
                         email_to=[db_user.email],
                         body={
-                            "title":f"{db_user.username}",
-                            "name":f"verify code is: {random_code}"
+                            "title": f"{db_user.username}",
+                            "name": f"verify code is: {random_code}"
                         }
                     )
                     return JSONResponse(status_code=200, content={"message": "email has been sent"})
-                elif  query.plan == 'mobile':
+                elif query.plan == 'mobile':
                     code = CVN(user_id=db_user.id, code=str(random_code))
                     db.add(code)
                     db.commit()
                     return JSONResponse(status_code=200, content={"message": "sms has been sent"})
                 else:
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                    detail="query params not valid")
+                                        detail="query params not valid")
             else:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                     detail="User is not active")
@@ -317,7 +334,7 @@ class ResetPassword():
                 detail="User not found"
             )
 
-    def post(request: ResetPassword, db: Session = Depends(get_db)):
+    def post(request: ResetPassword, db: get_session = Depends(get_db)):
         db_user = db.query(User).filter(
             User.username == request.username).first()
         verify_code = db.query(CVN).filter(
@@ -359,7 +376,7 @@ class ResetPassword():
                 detail="User does not exist"
             )
 
-    def patch(response: Response, request: Dict = Body(...), db: Session = Depends(get_db)):
+    def patch(response: Response, request: Dict = Body(...), db: get_session = Depends(get_db)):
         db_user = db.query(User).filter(
             User.username == request['username']).first()
         if db_user:
@@ -400,7 +417,7 @@ class ResetPassword():
 
 
 @auth_router.get("/userlog")
-async def user_log(db: Session = Depends(get_db), current_user: User = Security(get_current_user)):
+async def user_log(db: get_session = Depends(get_db), current_user: User = Security(get_current_user)):
     db_log = db.query(UserLog).filter(UserLog.user_id ==
                                       current_user['id']).order_by(UserLog.id.desc()).all()[:10]
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
@@ -414,7 +431,7 @@ class Profile():
 
     # def post(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
     #             with form data
-    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...), current_user: User = Security(get_current_user), db: Session = Depends(get_db)):
+    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...), current_user: User = Security(get_current_user), db: get_session = Depends(get_db)):
         db_user = db.query(User).filter(
             User.id == current_user['id']).first()
         db_profile = db.query(UserProfile).filter(
@@ -480,7 +497,7 @@ class Profile():
                 detail="User profile already exists"
             )
 
-    def get(current_user: User = Security(get_current_user), db: Session = Depends(get_db)):
+    def get(current_user: User = Security(get_current_user), db: get_session = Depends(get_db)):
         # user_id = _user.get_raw_jwt()['user']['id']
         print(current_user.get("id"))
         db_profile = db.query(UserProfile).filter(
@@ -501,7 +518,7 @@ class Profile():
                 detail="user does not exists",
             )
 
-    def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement), db: Session = Depends(get_db)):
+    def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement), db: get_session = Depends(get_db)):
         user_id = _user.get_raw_jwt()['user']['id']
         db_profile = db.query(UserProfile).filter(
             UserProfile.user_id == user_id).first()
