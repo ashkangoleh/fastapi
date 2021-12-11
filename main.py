@@ -5,10 +5,9 @@ from fastapi_jwt_auth.exceptions import AuthJWTException
 from fastapi import FastAPI, Request
 from authentication_api.schema import auth_schema
 from fastapi_jwt_auth import AuthJWT
-from db.init_db import init_db
+from db import init_db,redis_client
 from settings.middleware import Middleware
 from settings.include_routers import include_router
-from db.database import redis_conn
 import uvicorn
 import re
 import inspect
@@ -99,7 +98,7 @@ def get_config():
 @AuthJWT.token_in_denylist_loader
 def check_if_token_in_denylist(decrypted_token):
     jti = decrypted_token['jti']
-    entry = redis_conn.get(jti)
+    entry = redis_client.get(jti)
     return entry and entry == 'true'
 
 @app.exception_handler(AuthJWTException)
@@ -110,8 +109,8 @@ def authjwt_exception_handler(request: Request, exc: AuthJWTException):
     )
 
 @app.on_event("startup")
-def on_startup():
-    init_db()
+async def on_startup():
+    await init_db()
 
 
 if __name__ == "__main__":
