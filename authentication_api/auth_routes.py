@@ -38,8 +38,8 @@ import os
 import random
 from typing import Dict
 from db import get_db,get_session,redis_client
-
-
+from settings import limiter
+from fastapi_limiter.depends import RateLimiter
 auth_router = APIRouter(
     prefix='/auth',
     tags=['Authentication']
@@ -146,6 +146,7 @@ async def signUp(user: SignUpModel, response: Response, db: get_session = Depend
 
 # login route
 @auth_router.post('/login')
+# @limiter.limit("2/minute")
 async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends(),
                 ####################### query with async
                 # db: Asyncget_session = Depends(get_db) 
@@ -291,8 +292,8 @@ def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requiremen
 
 
 @wrapper_auth('/password')
+# @limiter.limit("5/minute")   # not working on websocket yet
 class ResetPassword():
-
     async def get(query: GetCodeSchema = Depends(), db: get_session = Depends(get_db)):
         CVN.old_code_remover(db)
         db_user = db.query(User).filter(
