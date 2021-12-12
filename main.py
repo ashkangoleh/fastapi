@@ -8,8 +8,6 @@ from fastapi_jwt_auth import AuthJWT
 from db import init_db,redis_client
 from settings.middleware import Middleware
 from settings.include_routers import include_router
-import aioredis
-from fastapi_limiter import FastAPILimiter
 
 import uvicorn
 import re
@@ -92,6 +90,7 @@ middleware.cors_origins()
 middleware.staticFiles()
 middleware.allowed_domains()
 middleware.rate_limit()
+
 include_router(app)
 
 
@@ -115,8 +114,8 @@ def authjwt_exception_handler(request: Request, exc: AuthJWTException):
 @app.on_event("startup")
 async def on_startup():
     await init_db()
-    # redis = await aioredis.from_url("redis://localhost", encoding="utf-8", decode_responses=True)
-    # await FastAPILimiter.init(redis)
+    await middleware.limiter_conf()
+
 
 
 
