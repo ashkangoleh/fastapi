@@ -1,7 +1,12 @@
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
+
+limiter = Limiter(key_func=get_remote_address)
 
 class Middleware:
     ORIGINS = [
@@ -28,3 +33,7 @@ class Middleware:
     def staticFiles(self):
         self.app.mount("/media", StaticFiles(directory="media"), name="media")
         self.app.mount("/static", StaticFiles(directory="static"), name="static")
+        
+    def rate_limit(self):
+        self.app.state.limiter = limiter
+        self.app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
