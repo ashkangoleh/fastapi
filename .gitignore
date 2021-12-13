@@ -5,3 +5,4 @@ venv
 psql
 media/*
 db/migrations/versions/*
+.vscode
