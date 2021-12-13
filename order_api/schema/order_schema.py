@@ -31,3 +31,9 @@ class OrderStatusModel(BaseModel):
                 "order_status": "PENDING"
             }
         }
+
+
+
+class OrderTest(BaseModel):
+    customer_name: str
+    order_quantity: int

@@ -13,6 +13,10 @@ from db.database import get_db
 from fastapi.exceptions import HTTPException
 from fastapi.responses import Response, JSONResponse
 from db import Session
+from utils.celery.celery_worker import create_task
+from .schema.order_schema import OrderTest
+
+
 
 order_router = APIRouter(
     prefix='/order',
@@ -20,6 +24,10 @@ order_router = APIRouter(
     tags=['Orders']
 )
 
+@order_router.post('/test')
+def add_order(order: OrderTest):
+    create_task.delay(order.customer_name, order.order_quantity)
+    return {"message": "Order Received! Thank you for your patience."}
 
 @order_router.get('/')
 async def hello():
