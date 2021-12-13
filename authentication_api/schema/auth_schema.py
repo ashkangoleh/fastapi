@@ -1,6 +1,6 @@
 from datetime import timedelta
-from pydantic import BaseModel, EmailStr, ValidationError, validator
-from typing import Any, Optional, Dict, Text
+from pydantic import BaseModel, EmailStr, validator, Field
+from typing import Optional, Text
 from utils import AuthHandler
 from fastapi import Form
 import re
@@ -59,10 +59,10 @@ class SignUpModel(BaseModel):
 
 
 class ResetPassword(BaseModel):
-    code: str
-    username: str
+    code: str = Field(required=True)
+    username: str = Field(required=True)
     # email: EmailStr
-    new_password: str
+    new_password: str = Field(required=True)
     new_password2: Optional[str]
 
     def hashed_password(self):
@@ -78,13 +78,12 @@ class ResetPassword(BaseModel):
 
 
 class UserProfileSchema(BaseModel):
-    first_name: str
-    last_name: str
+    first_name: str = Field(required=True)
+    last_name: str = Field(required=True)
     address: Optional[Text]
     image: Optional[str]
     postal_code: Optional[str]
     national_code: Optional[int]
-
 
     @classmethod
     def as_form(cls, first_name: str = Form(...), last_name: str = Form(...), address: Optional[Text] = Form(...), postal_code: Optional[str] = Form(...),
@@ -105,10 +104,10 @@ class Settings(BaseModel):
 
 
 class LoginModel(BaseModel):
-    username: str
-    password: str
+    username: str = Field(required=True)
+    password: str = Field(required=True)
 
 
 class GetCodeSchema(BaseModel):
-    username:str
-    plan:str= "email"
+    username: str = Field(required=True)
+    plan: str = Field(required=True, default="email")
