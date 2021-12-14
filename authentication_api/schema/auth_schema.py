@@ -86,9 +86,11 @@ class UserProfileSchema(BaseModel):
     national_code: Optional[int]
 
     @classmethod
-    def as_form(cls, first_name: str = Form(...), last_name: str = Form(...), address: Optional[Text] = Form(...), postal_code: Optional[str] = Form(...),
+    def as_form(cls, first_name: str = Form(...), last_name: str = Form(...), address: Optional[Text] = Form(...),
+                postal_code: Optional[str] = Form(...),
                 national_code: Optional[str] = Form(...)):
-        return cls(first_name=first_name, last_name=last_name, address=address, postal_code=postal_code, national_code=national_code)
+        return cls(first_name=first_name, last_name=last_name, address=address, postal_code=postal_code,
+                   national_code=national_code)
 
 
 class Settings(BaseModel):
