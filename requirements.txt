@@ -26,7 +26,6 @@ fakeredis==1.7.0
 fastapi==0.70.0
 fastapi-debug-toolbar==0.2.1
 fastapi-jwt-auth==0.5.0
-fastapi-limiter==0.1.5
 fastapi-mail==1.0.2
 fastapi-redis-cache==0.2.5
 flower==1.0.0

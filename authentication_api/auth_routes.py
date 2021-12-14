@@ -49,6 +49,14 @@ wrapper_auth = CBV(auth_router)
 
 
 async def get_current_user(token: str = Depends(AuthHandler.Token_requirement)):
+    """
+
+    Args:
+        token:
+
+    Returns:
+
+    """
     username = token.get_jwt_subject()
     user = token.get_raw_jwt()[username]
     return user
@@ -180,9 +188,9 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
         }
 
     """
-    ####################### normal query
+    # normal query
     db_user = db.query(User).filter(User.username == user.username).first()
-    ####################### async query
+    # async query
     # db_user = (await db.execute(select(User).where(
     #     User.username == user.username))).scalars().first()
     if db_user and AuthHandler.verify_password(db_user.password, user.password):
@@ -202,20 +210,20 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
         ip_loc = request.client.host
         geo = await GeoIpLocation(ip_loc)
         if geo['status'] != "fail":
-            #######################none async query
+            # none async query
             geoLoc = UserLog(user_id=db_user.id, user_log=geo)
             db.add(geoLoc)
             db.commit()
-            #######################async query
+            # async query
             # geoLoc = UserLog(user_id=db_user.id, user_log={"query": ip_loc})
             # db.add(geoLoc)
             # await db.commit()
         else:
-            #######################none async query
+            # none async query
             geoLoc = UserLog(user_id=db_user.id, user_log=geo)
             db.add(geoLoc)
             db.commit()
-            #######################async query
+            # async query
             # geoLoc = UserLog(user_id=db_user.id, user_log={"query": ip_loc})
             # db.add(geoLoc)
             # await db.commit()
@@ -347,7 +355,7 @@ class ResetPassword:
         if db_user:
             if db_user.is_active:
                 if db_user.id == verify_code.user_id:
-                    if verify_code.validation == True and verify_code.expiration_time < (
+                    if verify_code.validation and verify_code.expiration_time < (
                             datetime.datetime.now() + datetime.timedelta(minutes=2)):
                         if verify_code.code == request.code:
                             db_user.password = request.hashed_password()
@@ -407,7 +415,7 @@ class ResetPassword:
                 else:
                     response = {
                         "status": "fail",
-                        "message": "username / password is not currect"
+                        "message": "username / password is not correct"
                     }
                     return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
             else:
