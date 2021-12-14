@@ -6,3 +6,4 @@ psql
 media/*
 db/migrations/versions/*
 .vscode
+.idea
