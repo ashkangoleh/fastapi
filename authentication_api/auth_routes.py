@@ -36,10 +36,11 @@ import secrets
 from PIL import Image
 import os
 import random
-from typing import Dict
-from db import get_db,get_session,redis_client
+from typing import Dict, Any
+from db import get_db, get_session, redis_client
 from settings import limiter
 from fastapi_limiter.depends import RateLimiter as RL
+
 auth_router = APIRouter(
     prefix='/auth',
     tags=['Authentication']
@@ -70,14 +71,14 @@ async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)):
         "message": "This is Authentication route"
     }
 
+
 # signup route
-
-
 @auth_router.post('/signup', response_model=SignUpModel)
 async def signUp(user: SignUpModel, response: Response, db: get_session = Depends(get_db)):
     """user registration
 
     Args:
+        db: get_session which depends on get_db function
         user (SignUpModel): signup Schema
         response (Response): custom response
 
@@ -130,7 +131,7 @@ async def signUp(user: SignUpModel, response: Response, db: get_session = Depend
         "email": user.email,
         "phone_number": user.phone_number,
         "password": user.hashed_password(),
-        "is_active": True if not user.phone_number is None else False,
+        "is_active": True if user.phone_number is not None else False,
         "is_staff": False
     }
     new_user = User(**user_dict)
@@ -145,18 +146,20 @@ async def signUp(user: SignUpModel, response: Response, db: get_session = Depend
 
 
 # login route
-# @auth_router.post('/login',dependencies=[Depends(RL(times=2, seconds=5))]) # ratelimiter 
-@auth_router.post('/login',dependencies=[Depends(RL(times=2, seconds=20))])
+# @auth_router.post('/login',dependencies=[Depends(RL(times=2, seconds=5))]) # ratelimiter from fastapi-limiter
+@auth_router.post('/login')
 # @limiter.limit("2/minute")
 async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends(),
-                ####################### query with async
+                # query with async
                 # db: Asyncget_session = Depends(get_db) 
-                ####################### none async query
-                db: get_session = Depends(get_db)  
+                # none async query
+                db: get_session = Depends(get_db)
                 ):
     """user login
 
     Args:
+        db: get_session which depends on get_db function
+        request:
         user (LoginModel): Login Schema
         Authorize (AuthJWT, optional): User based on jwt. Defaults to Depends().
 
@@ -227,10 +230,12 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
 
 # refresh token route
 @auth_router.get('/refresh')
-async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement), db: get_session = Depends(get_db)):
+async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement),
+                        db: get_session = Depends(get_db)):
     """refresh token
 
     Args:
+        db: get_session which depends on get_db function
         Authorize (AuthJWT, optional): User based on jwt. Defaults to Depends().
 
     Raises:
@@ -269,9 +274,8 @@ async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requi
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="User is not active")
 
+
 # revoke access and refresh token
-
-
 @auth_router.delete('/access-revoke')
 def access_revoke(Authorize: str = Depends(AuthHandler.Token_requirement)):
     Authorize.jwt_required()
@@ -289,12 +293,11 @@ def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requiremen
     redis_client.setex(jti, Settings().refresh_expires, 'true')
     return {"detail": "Refresh token has been revoke"}
 
+
 # user change and reset password
-
-
-@wrapper_auth('/password',dependencies=[Depends(RL(times=2, minutes=3))])
+@wrapper_auth('/password', dependencies=[Depends(RL(times=2, minutes=3))])
 # @limiter.limit("5/minute")   # not working on websocket yet
-class ResetPassword():
+class ResetPassword:
     async def get(query: GetCodeSchema = Depends(), db: get_session = Depends(get_db)):
         CVN.old_code_remover(db)
         db_user = db.query(User).filter(
@@ -344,7 +347,8 @@ class ResetPassword():
         if db_user:
             if db_user.is_active:
                 if db_user.id == verify_code.user_id:
-                    if verify_code.validation == True and verify_code.expiration_time < (datetime.datetime.now() + datetime.timedelta(minutes=2)):
+                    if verify_code.validation == True and verify_code.expiration_time < (
+                            datetime.datetime.now() + datetime.timedelta(minutes=2)):
                         if verify_code.code == request.code:
                             db_user.password = request.hashed_password()
                             verify_code.validation = False
@@ -378,7 +382,7 @@ class ResetPassword():
                 detail="User does not exist"
             )
 
-    def patch(response: Response, request: Dict = Body(...), db: get_session = Depends(get_db)):
+    def patch(request: Dict = Body(...), db: get_session = Depends(get_db)):
         db_user = db.query(User).filter(
             User.username == request['username']).first()
         if db_user:
@@ -415,9 +419,8 @@ class ResetPassword():
                 detail="User does not exist"
             )
 
+
 # user log
-
-
 @auth_router.get("/userlog")
 async def user_log(db: get_session = Depends(get_db), current_user: User = Security(get_current_user)):
     db_log = db.query(UserLog).filter(UserLog.user_id ==
@@ -425,15 +428,14 @@ async def user_log(db: get_session = Depends(get_db), current_user: User = Secur
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
     return jsonable_encoder(data)
 
+
 # user profile
-
-
 @wrapper_auth('/profile')
-class Profile():
-
+class Profile:
     # def post(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
     #             with form data
-    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...), current_user: User = Security(get_current_user), db: get_session = Depends(get_db)):
+    async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...),
+                   current_user: User = Security(get_current_user), db: get_session = Depends(get_db)):
         db_user = db.query(User).filter(
             User.id == current_user['id']).first()
         db_profile = db.query(UserProfile).filter(
@@ -442,14 +444,14 @@ class Profile():
             file_content = await file.read()
             generated_name = ""
             FILEPATH = "media/profile_image/"
-            extention = file.filename.split(".")[1]
-            token_name = secrets.token_hex(10)+"."+extention
-            if not os.path.exists(FILEPATH+f'{db_user.id}'):
-                make_user_dir = os.mkdir(FILEPATH+f'{db_user.id}')
-                generated_name += make_user_dir+"/" + token_name
+            extension = file.filename.split(".")[1]
+            token_name = secrets.token_hex(10) + "." + extension
+            if not os.path.exists(FILEPATH + f'{db_user.id}'):
+                make_user_dir: Any = os.mkdir(FILEPATH + f'{db_user.id}')
+                generated_name += make_user_dir + "/" + token_name
             else:
-                generated_name += FILEPATH+f'{db_user.id}/' + token_name
-            if extention not in ["jpg", "png"]:
+                generated_name += FILEPATH + f'{db_user.id}/' + token_name
+            if extension not in ["jpg", "png"]:
                 raise HTTPException(
                     status_code=status.HTTP_406_NOT_ACCEPTABLE,
                     detail="file extension is not valid"
@@ -520,7 +522,8 @@ class Profile():
                 detail="user does not exists",
             )
 
-    def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement), db: get_session = Depends(get_db)):
+    def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement),
+              db: get_session = Depends(get_db)):
         user_id = _user.get_raw_jwt()['user']['id']
         db_profile = db.query(UserProfile).filter(
             UserProfile.user_id == user_id).first()
@@ -536,11 +539,9 @@ class Profile():
 
 
 # mail service
-
 # send mail with async
 @auth_router.post("/email")
 async def simple_send(email: EmailSchema) -> JSONResponse:
-
     await send_email_async(
         subject=email.dict().get("subject"),
         email_to=email.dict().get("email"),
@@ -548,12 +549,13 @@ async def simple_send(email: EmailSchema) -> JSONResponse:
     )
     return JSONResponse(status_code=200, content={"message": "email has been sent"})
 
+
 # send mail with backgroundTasks
 
 
 @auth_router.post("/emailbackground")
 async def send_in_background(
-    background_tasks: BackgroundTasks,
-    email: EmailSchema
+        background_tasks: BackgroundTasks,
+        email: EmailSchema
 ) -> JSONResponse:
     return JSONResponse(status_code=200, content={"message": "email has been sent"})
