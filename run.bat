@@ -1,2 +1,2 @@
 @echo off
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload --workers 3 --log-level critical
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload --workers 3 --log-level critical --log-config ./log.ini
