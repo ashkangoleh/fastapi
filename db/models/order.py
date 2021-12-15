@@ -21,7 +21,7 @@ class Order(Base):
         ("EXTRA-LARGE", "extra-large"),
     )
     __tablename__ = "orders"
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
     quantity = Column(Integer, nullable=False)
     order_status = Column(ChoiceType(
         choices=ORDER_STATUSES), default="PENDING")

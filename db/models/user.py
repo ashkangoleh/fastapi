@@ -16,7 +16,7 @@ import datetime
 
 class User(Base):
     __tablename__ = "user"
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
     username = Column(String(25), unique=True)
     email = Column(String(80), unique=True)
     phone_number = Column(String(11), unique=True, nullable=True, default=None)
@@ -36,7 +36,7 @@ class User(Base):
 
 class CodeVerification(Base):
     __tablename__ = "verification_code"
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
     code = Column(String(6), nullable=False)
     validation = Column(Boolean, nullable=True, default=True)
     expiration_time = Column(DateTime, default=datetime.datetime.now())
@@ -49,14 +49,15 @@ class CodeVerification(Base):
     @staticmethod
     def old_code_remover(db):
         old = datetime.datetime.now() - datetime.timedelta(days=1)
-        old_code = db.query(CodeVerification).filter(CodeVerification.expiration_time < old).all()
+        old_code = db.query(CodeVerification).filter(
+            CodeVerification.expiration_time < old).all()
         for olds in old_code:
             db.delete(olds)
 
 
 class UserLog(Base):
     __tablename__ = "users_log"
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
     user_log = Column(JSON)
     login_datetime = Column(DateTime, default=datetime.datetime.now())
     user_id = Column(Integer, ForeignKey("user.id"))
@@ -74,11 +75,12 @@ class UserProfile(Base):
         ("pro", "pro"),
     )
     __tablename__ = "user_profile"
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
     first_name = Column(String(255), nullable=False)
     last_name = Column(String(255), nullable=False)
     address = Column(Text)
-    image = Column(URLType)
+    image = Column(
+        URLType, default="/media/profile_image/simple.png", nullable=False)
     postal_code = Column(String(25))
     national_code = Column(String(10))
     type = Column(ChoiceType(TYPE), default="guest")
