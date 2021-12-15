@@ -59,10 +59,10 @@ class SignUpModel(BaseModel):
 
 
 class ResetPassword(BaseModel):
-    code: str = Field(required=True)
-    username: str = Field(required=True)
+    code: str 
+    username: str 
     # email: EmailStr
-    new_password: str = Field(required=True)
+    new_password: str 
     new_password2: Optional[str]
 
     def hashed_password(self):
@@ -75,11 +75,12 @@ class ResetPassword(BaseModel):
         if 'new_password' in values and v != values['new_password']:
             raise ValueError('new_password do not match')
         return v
-
+    class Config:
+        orm_mode = True
 
 class UserProfileSchema(BaseModel):
-    first_name: str = Field(required=True)
-    last_name: str = Field(required=True)
+    first_name: str 
+    last_name: str 
     address: Optional[Text]
     image: Optional[str]
     postal_code: Optional[str]
@@ -94,7 +95,8 @@ class UserProfileSchema(BaseModel):
                    address=address,
                    postal_code=postal_code,
                    national_code=national_code)
-
+    class Config:
+        orm_mode = True
 
 class Settings(BaseModel):
     authjwt_secret_key: str = 'f00cc46cca11ba7fb31010c7435b8593267d8e973cf55e85d905083452246b20'
@@ -109,14 +111,16 @@ class Settings(BaseModel):
 
 
 class LoginModel(BaseModel):
-    username: str = Field(required=True)
-    password: str = Field(required=True)
-
+    username: str 
+    password: str 
+    class Config:
+        orm_mode = True
 
 class GetCodeSchema(BaseModel):
-    username: str = Field(required=True)
+    username: str = Field(required=True, default="x")
     plan: str = Field(required=True, default="email")
-
+    class Config:
+        orm_mode = True
 
 async def get_current_user(token: str = Depends(AuthHandler.Token_requirement)):
     """
