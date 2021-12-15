@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from . import database as DB
-from .database import init_db
+from .database import init_db, Base
 from .auth_config.auth_handler import AuthHandler
 from .schema.auth_schema import (
     LoginModel,
