@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from db.schema import auth_schema
 from fastapi_jwt_auth import AuthJWT
 from db import init_db,redis_client
-from settings.middleware import Middleware
+from settings import Middleware
 from settings.include_routers import include_router
 
 import uvicorn
