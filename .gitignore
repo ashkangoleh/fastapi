@@ -7,3 +7,4 @@ media/*
 db/migrations/versions/*
 .vscode
 .idea
+logfile.log
