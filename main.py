@@ -3,7 +3,7 @@ from fastapi.routing import APIRoute
 from fastapi.openapi.utils import get_openapi
 from fastapi_jwt_auth.exceptions import AuthJWTException
 from fastapi import FastAPI, Request
-from authentication_api.schema import auth_schema
+from db.schema import auth_schema
 from fastapi_jwt_auth import AuthJWT
 from db import init_db,redis_client
 from settings.middleware import Middleware
@@ -84,7 +84,6 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
-
 middleware = Middleware(app)
 middleware.cors_origins()
 middleware.staticFiles()
@@ -120,7 +119,7 @@ async def on_startup():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, workers=30)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, workers=4)
 
 
 # for install fastapi-limiter -> pip install git+https://github.com/long2ice/fastapi-limiter.git

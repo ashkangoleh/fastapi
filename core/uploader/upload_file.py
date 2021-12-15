@@ -1,14 +1,15 @@
-from fastapi import File, UploadFile, APIRouter, Depends
+from fastapi import File, UploadFile, APIRouter, Depends, Security
 from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse
-from utils import AuthHandler
+from db import AuthHandler
+from db.schema.auth_schema import get_current_user
 from PIL import Image
 import os
 file_router = APIRouter()
 
 
 @file_router.post('/profile_image', tags=['upload'])
-async def upload_file(file: UploadFile = File(...), _user=Depends(AuthHandler.Token_requirement)):
+async def upload_file(file: UploadFile = File(...), current_user:Security=Depends(get_current_user)):
     FILEPATH = "./media/profile_image/"
     filename = file.filename
     extention = filename.split(".")[1]
@@ -16,7 +17,7 @@ async def upload_file(file: UploadFile = File(...), _user=Depends(AuthHandler.To
     if extention not in ["jpg", "png"]:
         return False
 
-    user_id = _user.get_raw_jwt()['detail']['id']
+    user_id = current_user['id']
     generated_name = FILEPATH + f"{user_id}.{extention}"
     file_content = await file.read()
     if not os.path.exists(generated_name):

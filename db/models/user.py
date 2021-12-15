@@ -1,5 +1,4 @@
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql.sqltypes import JSON
 from db.database import Base
 from sqlalchemy import (
     Boolean,
@@ -11,9 +10,8 @@ from sqlalchemy import (
     DateTime,
     JSON,
 )
-from sqlalchemy_utils import ChoiceType,URLType
+from sqlalchemy_utils import ChoiceType, URLType
 import datetime
-
 
 
 class User(Base):
@@ -36,33 +34,6 @@ class User(Base):
         return f"<user {self.username}>"
 
 
-class Order(Base):
-    ORDER_STATUSES = (
-        ("PENDING", "pending"),
-        ("IN-TRANSIT", "in-transit"),
-        ("DELIVERED", "delivered"),
-    )
-    ORDER_SIZES = (
-        ("SMALL", "small"),
-        ("MEDIUM", "medium"),
-        ("LARGE", "large"),
-        ("EXTRA-LARGE", "extra-large"),
-    )
-    __tablename__ = "orders"
-    id = Column(Integer, primary_key=True)
-    quantity = Column(Integer, nullable=False)
-    order_status = Column(ChoiceType(
-        choices=ORDER_STATUSES), default="PENDING")
-    order_sizes = Column(ChoiceType(choices=ORDER_SIZES), default="SMALL")
-    # relation user to order
-    # string name as obj in relationship is Class name
-    user_id = Column(Integer, ForeignKey("user.id"))
-    user = relationship("User", back_populates='orders')
-
-    def __repr__(self):
-        return f"<Order {self.id}>"
-
-
 class CodeVerification(Base):
     __tablename__ = "verification_code"
     id = Column(Integer, primary_key=True)
@@ -74,13 +45,14 @@ class CodeVerification(Base):
 
     def __repr__(self):
         return f"<code for {self.id}>"
-    
+
     @staticmethod
     def old_code_remover(db):
-        old = datetime.datetime.now()-datetime.timedelta(days=1)
+        old = datetime.datetime.now() - datetime.timedelta(days=1)
         old_code = db.query(CodeVerification).filter(CodeVerification.expiration_time < old).all()
         for olds in old_code:
             db.delete(olds)
+
 
 class UserLog(Base):
     __tablename__ = "users_log"
@@ -92,7 +64,7 @@ class UserLog(Base):
 
     def __repr__(self):
         return f"<code for {self.id}>"
-    
+
 
 class UserProfile(Base):
     TYPE = (
@@ -109,14 +81,9 @@ class UserProfile(Base):
     image = Column(URLType)
     postal_code = Column(String(25))
     national_code = Column(String(10))
-    type=Column(ChoiceType(TYPE),default="guest")
+    type = Column(ChoiceType(TYPE), default="guest")
     user_id = Column(Integer, ForeignKey("user.id"))
     user = relationship('User', back_populates="user_profile")
 
     def __repr__(self):
         return f"<code for {self.id}"
-
-
-
-
-        

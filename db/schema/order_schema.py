@@ -1,8 +1,5 @@
 from pydantic import BaseModel
-from typing import Any, Optional, Dict
-
-from sqlalchemy import orm
-
+from typing import Optional
 
 class OrderModel(BaseModel):
     id: Optional[int]

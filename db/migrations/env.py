@@ -5,7 +5,6 @@ from logging.config import fileConfig
 from sqlalchemy import create_engine
 from alembic import context
 from decouple import config
-from model.models import * 
 from db.database import Base
 
 DB_USER = config('POSTGRES_USER')

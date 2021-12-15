@@ -1,9 +1,10 @@
-from typing import AsyncIterator
+from typing import AsyncIterator, Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from decouple import config
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from settings import LOGGER
 
 DB_USER = config('POSTGRES_USER')
 DB_PASSWORD = config('POSTGRES_PASSWORD')
@@ -22,18 +23,19 @@ redis_conn = Redis(host='localhost', port=6379, db=1, decode_responses=True)
 Base = declarative_base()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-print(SessionLocal())
 
 async def init_db():
     Base.metadata.create_all(bind=engine)
+    LOGGER.info('init db starting ....')
 
 # none async
-def get_db():
+def get_db() -> Generator:
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+        
 # query with async
 # async def init_db():
 #     async with engine.begin() as session:

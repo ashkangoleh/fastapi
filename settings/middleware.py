@@ -1,3 +1,4 @@
+from .logger import logger as LOGGER
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -7,6 +8,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from decouple import config
 import aioredis
+
 
 limiter = Limiter(key_func=get_remote_address)
 class Middleware:
@@ -49,3 +51,4 @@ class Middleware:
     async def limiter_conf(self):
         rate_limiter = await aioredis.from_url(f"{self.REDIS_LIMITER}", encoding="utf-8", decode_responses=True, db=2)
         await FastAPILimiter.init(prefix="core_api",redis=rate_limiter)
+        LOGGER.info('rate limit activated...')

@@ -7,39 +7,39 @@ from fastapi import (
     UploadFile,
     File,
     Security,
-    BackgroundTasks,
-    Query
+    BackgroundTasks
 )
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import Response, JSONResponse
-from utils import CBV, GeoIpLocation
-from utils.mail_service.mail_service import EmailSchema, send_email_async
-from .schema.auth_schema import (
+from db import (
     LoginModel,
     SignUpModel,
     ResetPassword,
     UserProfileSchema,
     Settings,
     GetCodeSchema,
-)
-from model.models import (
+    get_current_user,
     User,
     UserLog,
     CodeVerification as CVN,
-    UserProfile
+    UserProfile,
+    AuthHandler,
+    get_db,
+    get_session, 
+    redis_client
 )
+from utils.mail_service.mail_service import EmailSchema, send_email_async
+from fastapi.responses import Response, JSONResponse
+from fastapi_limiter.depends import RateLimiter as RL
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
-import datetime
 from fastapi_jwt_auth import AuthJWT
-from utils import AuthHandler
-import secrets
+from utils import CBV, GeoIpLocation
+from typing import Dict, Any
+from settings import LOGGER
 from PIL import Image
 import os
+import datetime
 import random
-from typing import Dict, Any
-from db import get_db, get_session, redis_client
-from settings import limiter
-from fastapi_limiter.depends import RateLimiter as RL
+import secrets
 
 auth_router = APIRouter(
     prefix='/auth',
@@ -48,22 +48,8 @@ auth_router = APIRouter(
 wrapper_auth = CBV(auth_router)
 
 
-async def get_current_user(token: str = Depends(AuthHandler.Token_requirement)):
-    """
-
-    Args:
-        token:
-
-    Returns:
-
-    """
-    username = token.get_jwt_subject()
-    user = token.get_raw_jwt()[username]
-    return user
-
-
 @auth_router.get('/')
-async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)):
+async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)) -> dict:
     """normal route for check authentication
 
     Args:
@@ -82,7 +68,7 @@ async def hello(Authorize: str = Depends(AuthHandler.Token_requirement)):
 
 # signup route
 @auth_router.post('/signup', response_model=SignUpModel)
-async def signUp(user: SignUpModel, response: Response, db: get_session = Depends(get_db)):
+async def signUp(user: SignUpModel, response: Response, db: get_session = Depends(get_db)) -> JSONResponse:
     """user registration
 
     Args:
@@ -159,10 +145,10 @@ async def signUp(user: SignUpModel, response: Response, db: get_session = Depend
 # @limiter.limit("2/minute")
 async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends(),
                 # query with async
-                # db: Asyncget_session = Depends(get_db) 
+                # db: Asyncget_session = Depends(get_db)
                 # none async query
                 db: get_session = Depends(get_db)
-                ):
+                ) -> JSONResponse:
     """user login
 
     Args:
@@ -193,6 +179,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
     # async query
     # db_user = (await db.execute(select(User).where(
     #     User.username == user.username))).scalars().first()
+    ip_loc = request.client.host
     if db_user and AuthHandler.verify_password(db_user.password, user.password):
         user_claims = {
             db_user.username: {
@@ -207,7 +194,6 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
             subject=user.username, user_claims=user_claims, algorithm='HS256')
         refresh_token = Authorize.create_refresh_token(
             subject=user.username, user_claims=user_claims, algorithm='HS256')
-        ip_loc = request.client.host
         geo = await GeoIpLocation(ip_loc)
         if geo['status'] != "fail":
             # none async query
@@ -232,6 +218,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
             "refresh_token": refresh_token
         }
         return JSONResponse(content=resp, status_code=status.HTTP_201_CREATED)
+    LOGGER.error(f'Login route')
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Invalid Username or Password")
 
@@ -239,7 +226,7 @@ async def login(request: Request, user: LoginModel, Authorize: AuthJWT = Depends
 # refresh token route
 @auth_router.get('/refresh')
 async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requirement),
-                        db: get_session = Depends(get_db)):
+                        db: get_session = Depends(get_db)) -> jsonable_encoder:
     """refresh token
 
     Args:
@@ -279,26 +266,29 @@ async def refresh_token(Authorize: str = Depends(AuthHandler.Refresh_token_requi
             }
         )
     else:
+        LOGGER.error(f'Refresh route')
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="User is not active")
 
 
 # revoke access and refresh token
 @auth_router.delete('/access-revoke')
-def access_revoke(Authorize: str = Depends(AuthHandler.Token_requirement)):
+def access_revoke(Authorize: str = Depends(AuthHandler.Token_requirement)) -> dict:
     Authorize.jwt_required()
 
     jti = Authorize.get_raw_jwt()['jti']
     redis_client.setex(jti, Settings().access_expires, 'true')
+    LOGGER.info(f'{jti}-access-Revoked')
     return {"detail": "Access token has been revoke"}
 
 
 @auth_router.delete('/refresh-revoke')
-def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requirement)):
+def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requirement)) -> dict:
     Authorize.jwt_refresh_token_required()
 
     jti = Authorize.get_raw_jwt()['jti']
     redis_client.setex(jti, Settings().refresh_expires, 'true')
+    LOGGER.info(f'{jti}-refresh-Revoked')
     return {"detail": "Refresh token has been revoke"}
 
 
@@ -306,7 +296,7 @@ def refresh_revoke(Authorize: str = Depends(AuthHandler.Refresh_token_requiremen
 @wrapper_auth('/password', dependencies=[Depends(RL(times=2, minutes=3))])
 # @limiter.limit("5/minute")   # not working on websocket yet
 class ResetPassword:
-    async def get(query: GetCodeSchema = Depends(), db: get_session = Depends(get_db)):
+    async def get(query: GetCodeSchema = Depends(), db: get_session = Depends(get_db)) -> JSONResponse:
         CVN.old_code_remover(db)
         db_user = db.query(User).filter(
             User.username == query.username).first()
@@ -329,25 +319,30 @@ class ResetPassword:
                             "name": f"verify code is: {random_code}"
                         }
                     )
+                    LOGGER.info(f'reset password code receiver - email sent')
                     return JSONResponse(status_code=200, content={"message": "email has been sent"})
                 elif query.plan == 'mobile':
                     code = CVN(user_id=db_user.id, code=str(random_code))
                     db.add(code)
                     db.commit()
+                    LOGGER.info(f'reset password code receiver - sms sent')
                     return JSONResponse(status_code=200, content={"message": "sms has been sent"})
                 else:
+                    LOGGER.error(f'reset password code receiver - query params not valid')
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                         detail="query params not valid")
             else:
+                LOGGER.error(f'reset password code receiver -  {db_user.username}-is not active')
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                     detail="User is not active")
         else:
+            LOGGER.error(f'reset password code receiver - user not found')
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
 
-    def post(request: ResetPassword, db: get_session = Depends(get_db)):
+    async def post(request: ResetPassword, db: get_session = Depends(get_db)) -> JSONResponse:
         db_user = db.query(User).filter(
             User.username == request.username).first()
         verify_code = db.query(CVN).filter(
@@ -356,7 +351,7 @@ class ResetPassword:
             if db_user.is_active:
                 if db_user.id == verify_code.user_id:
                     if verify_code.validation and verify_code.expiration_time < (
-                            datetime.datetime.now() + datetime.timedelta(minutes=2)):
+                            datetime.datetime.now() + datetime.timedelta(minutes=5)):
                         if verify_code.code == request.code:
                             db_user.password = request.hashed_password()
                             verify_code.validation = False
@@ -390,7 +385,7 @@ class ResetPassword:
                 detail="User does not exist"
             )
 
-    def patch(request: Dict = Body(...), db: get_session = Depends(get_db)):
+    async def patch(request: Dict = Body(...), db: get_session = Depends(get_db)) -> JSONResponse:
         db_user = db.query(User).filter(
             User.username == request['username']).first()
         if db_user:
@@ -430,7 +425,7 @@ class ResetPassword:
 
 # user log
 @auth_router.get("/userlog")
-async def user_log(db: get_session = Depends(get_db), current_user: User = Security(get_current_user)):
+async def user_log(db: get_session = Depends(get_db), current_user: User = Security(get_current_user)) -> jsonable_encoder:
     db_log = db.query(UserLog).filter(UserLog.user_id ==
                                       current_user['id']).order_by(UserLog.id.desc()).all()[:10]
     data = {logs.login_datetime.timestamp(): logs.user_log for logs in db_log}
@@ -443,7 +438,7 @@ class Profile:
     # def post(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement)):
     #             with form data
     async def post(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), file: UploadFile = File(...),
-                   current_user: User = Security(get_current_user), db: get_session = Depends(get_db)):
+                   current_user: User = Security(get_current_user), db: get_session = Depends(get_db)) -> jsonable_encoder:
         db_user = db.query(User).filter(
             User.id == current_user['id']).first()
         db_profile = db.query(UserProfile).filter(
@@ -455,7 +450,7 @@ class Profile:
             extension = file.filename.split(".")[1]
             token_name = secrets.token_hex(10) + "." + extension
             if not os.path.exists(FILEPATH + f'{db_user.id}'):
-                make_user_dir: Any = os.mkdir(FILEPATH + f'{db_user.id}')
+                make_user_dir: str = os.mkdir(FILEPATH + f'{db_user.id}')
                 generated_name += make_user_dir + "/" + token_name
             else:
                 generated_name += FILEPATH + f'{db_user.id}/' + token_name
@@ -509,9 +504,7 @@ class Profile:
                 detail="User profile already exists"
             )
 
-    def get(current_user: User = Security(get_current_user), db: get_session = Depends(get_db)):
-        # user_id = _user.get_raw_jwt()['user']['id']
-        print(current_user.get("id"))
+    async def get(current_user: User = Security(get_current_user), db: get_session = Depends(get_db)) -> jsonable_encoder:
         db_profile = db.query(UserProfile).filter(
             UserProfile.user_id == current_user['id']).first()
         if db_profile:
@@ -530,21 +523,59 @@ class Profile:
                 detail="user does not exists",
             )
 
-    def patch(profile: UserProfileSchema, _user=Depends(AuthHandler.Token_requirement),
-              db: get_session = Depends(get_db)):
-        user_id = _user.get_raw_jwt()['user']['id']
+    async def patch(profile: UserProfileSchema = Depends(UserProfileSchema.as_form), current_user: User = Security(get_current_user),
+                    db: get_session = Depends(get_db), file: UploadFile = File(...)) -> jsonable_encoder:
         db_profile = db.query(UserProfile).filter(
-            UserProfile.user_id == user_id).first()
+            UserProfile.user_id == current_user['id']).first()
         if db_profile:
-            db_profile.first_name = profile.first_name
-            db_profile.last_name = profile.last_name
-            db_profile.address = profile.address
-            db.commit()
-            return jsonable_encoder({
-                "status": "success",
-                "message": f"{db_profile.user.username}'s profile updated"
-            })
-
+            file_content = await file.read()
+            generated_name = ""
+            FILEPATH = "media/profile_image/"
+            extension = file.filename.split(".")[1]
+            token_name = secrets.token_hex(10) + "." + extension
+            if not os.path.exists(FILEPATH + f'{current_user["id"]}'):
+                make_user_dir: str = os.mkdir(
+                    FILEPATH + f'{current_user["id"]}')
+                generated_name += make_user_dir + "/" + token_name
+            else:
+                generated_name += FILEPATH + \
+                    f'{current_user["id"]}/' + token_name
+            if extension not in ["jpg", "png"]:
+                raise HTTPException(
+                    status_code=status.HTTP_406_NOT_ACCEPTABLE,
+                    detail="file extension is not valid"
+                )
+            if not os.path.exists(generated_name):
+                with open(generated_name, "wb") as file_object:
+                    file_object.write(file_content)
+                img = Image.open(generated_name)
+                img = img.resize(size=(200, 200))
+                img.save(generated_name)
+                file_object.close()
+            try:
+                url = str(generated_name)
+                profile.image = url
+                db_profile.first_name = profile.first_name
+                db_profile.last_name = profile.last_name
+                db_profile.address = profile.address
+                db_profile.image = profile.image
+                db_profile.national_code = profile.national_code
+                db_profile.postal_code = profile.postal_code
+                db.commit()
+                return jsonable_encoder({
+                    "status": "success",
+                    "message": f"{db_profile.user.username}'s profile updated"
+                })
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_204_NO_CONTENT,
+                    detail="Fill all requirements"
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User does not exists"
+            )
 
 # mail service
 # send mail with async
@@ -559,8 +590,6 @@ async def simple_send(email: EmailSchema) -> JSONResponse:
 
 
 # send mail with backgroundTasks
-
-
 @auth_router.post("/emailbackground")
 async def send_in_background(
         background_tasks: BackgroundTasks,

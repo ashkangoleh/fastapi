@@ -1,8 +1,8 @@
-from datetime import timedelta
 from pydantic import BaseModel, EmailStr, validator, Field
+from fastapi import Form, Depends
 from typing import Optional, Text
-from utils import AuthHandler
-from fastapi import Form
+from datetime import timedelta
+from db import AuthHandler
 import re
 
 
@@ -89,14 +89,17 @@ class UserProfileSchema(BaseModel):
     def as_form(cls, first_name: str = Form(...), last_name: str = Form(...), address: Optional[Text] = Form(...),
                 postal_code: Optional[str] = Form(...),
                 national_code: Optional[str] = Form(...)):
-        return cls(first_name=first_name, last_name=last_name, address=address, postal_code=postal_code,
+        return cls(first_name=first_name,
+                   last_name=last_name,
+                   address=address,
+                   postal_code=postal_code,
                    national_code=national_code)
 
 
 class Settings(BaseModel):
     authjwt_secret_key: str = 'f00cc46cca11ba7fb31010c7435b8593267d8e973cf55e85d905083452246b20'
-    authjwt_access_token: int = 300
-    authjwt_refresh_token: int = 300  # 5min
+    # authjwt_access_token: int = 300
+    # authjwt_refresh_token: int = 300  # 5min
     authjwt_denylist_enabled: bool = True
     authjwt_denylist_token_checks: set = {"access", "refresh"}
     access_expires: int = timedelta(minutes=15)
@@ -113,3 +116,17 @@ class LoginModel(BaseModel):
 class GetCodeSchema(BaseModel):
     username: str = Field(required=True)
     plan: str = Field(required=True, default="email")
+
+
+async def get_current_user(token: str = Depends(AuthHandler.Token_requirement)):
+    """
+
+    Args:
+        token:
+
+    Returns:
+
+    """
+    username = token.get_jwt_subject()
+    user = token.get_raw_jwt()[username]
+    return user
