@@ -104,39 +104,49 @@ async def signUp(user: SignUpModel, response: Response, db: get_session = Depend
         User.phone_number == user.phone_number).first()
     if db_email is not None:
         response.status_code = status.HTTP_400_BAD_REQUEST
+        LOGGER.error(f'signup email exists')
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="User with the email already exists",
                             headers=None
                             )
     if db_username is not None:
+        LOGGER.error(f'signup username exists')
         response.status_code = status.HTTP_400_BAD_REQUEST
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="User with the username already exists",
                             headers=None
                             )
     if db_phone_number is not None:
+        LOGGER.error(f'signup phone number exists')
         response.status_code = status.HTTP_400_BAD_REQUEST
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="phone number already exists",
                             headers=None
                             )
-    user_dict = {
-        "username": user.username,
-        "email": user.email,
-        "phone_number": user.phone_number,
-        "password": user.hashed_password(),
-        "is_active": True if user.phone_number is not None else False,
-        "is_staff": False
-    }
-    new_user = User(**user_dict)
-    user.password2 = user.hashed_password()
-    db.add(new_user)
-    db.commit()
-    resp = {
-        "status": "success",
-        "message": "User created successfully",
-    }
-    return JSONResponse(content=resp, status_code=status.HTTP_201_CREATED)
+    try:
+        user_dict = {
+            "username": user.username,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "password": user.hashed_password(),
+            "is_active": True if user.phone_number is not None else False,
+            "is_staff": False
+        }
+        new_user = User(**user_dict)
+        user.password2 = user.hashed_password()
+        db.add(new_user)
+        db.commit()
+        resp = {
+            "status": "success",
+            "message": "User created successfully",
+        }
+        return JSONResponse(content=resp, status_code=status.HTTP_201_CREATED)
+    except Exception as e:
+        LOGGER.error(f'signup user creation failed')
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="user creation failed"
+        )
 
 
 # login route
