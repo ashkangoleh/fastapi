@@ -27,7 +27,9 @@ order_router = APIRouter(
 
 @order_router.post('/test')
 def add_order(order: OrderTest):
-    create_task.delay(order.customer_name, order.order_quantity)
+    cy = create_task.delay(order.customer_name, order.order_quantity)
+    result = create_task.AsyncResult(cy.task_id)
+    # print(result.get())
     return {"message": "Order Received! Thank you for your patience."}
 
 
