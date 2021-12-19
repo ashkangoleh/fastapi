@@ -15,27 +15,33 @@ DB_NAME = config('POSTGRES_DB')
 #     f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_ADDRESS}/{DB_NAME}", echo=False, convert_unicode=True
 # )
 engine = create_engine(
-    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_ADDRESS}/{DB_NAME}", echo=False, convert_unicode=True
+    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_ADDRESS}/{DB_NAME}", echo=False, convert_unicode=True
 )
 engine.execution_options(stream_results=True)
 redis_conn = Redis(host='localhost', port=6379, db=1, decode_responses=True)
 
 Base = declarative_base()
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, expire_on_commit=False, bind=engine)
+
 
 async def init_db():
+    # develop mode (not recommend)
+    # Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     LOGGER.info('init db starting ....')
 
 # none async
+
+
 def get_db() -> Generator:
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-        
+
 # query with async
 # async def init_db():
 #     async with engine.begin() as session:
