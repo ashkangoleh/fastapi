@@ -1,6 +1,16 @@
 version: "3"
 
 services:
+  web:
+      build: 
+        context: ./nginx
+        dockerfile: dockerfile
+      ports:
+        - 8001:80
+        - 443:443
+      depends_on:
+        - app
+
   app:
     build:
       context: .
@@ -14,11 +24,27 @@ services:
   psql:
     hostname: fast_psql
     image: postgres
-    restart: on_failure:3
-    ports:
-      - "5432:5432"
+    # restart: on_failure:3
+    expose:
+      - 5432
     volumes:
       - "./psql:/var/lib/postgresql/data"
     env_file:
       - .env
-    
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      timeout: 45s
+      interval: 5s
+      retries: 5
+    restart: always
+
+  redis:
+    image: redis:latest
+    expose:
+      - 6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 30s
+      retries: 50
+    restart: always
