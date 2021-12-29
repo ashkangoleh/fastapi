@@ -10,7 +10,9 @@ DB_USER = config('POSTGRES_USER')
 DB_PASSWORD = config('POSTGRES_PASSWORD')
 DB_ADDRESS = config('POSTGRES_ADDRESS')
 DB_NAME = config('POSTGRES_DB')
-
+REDIS_LIMITER = config('REDIS_LIMITER',cast=str)
+REDIS_LIMITER_PORT = config('REDIS_LIMITER_PORT', cast=int)
+REDIS_LIMITER_DB = config('REDIS_LIMITER_DB', cast=int)
 # engine = create_async_engine(
 #     f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_ADDRESS}/{DB_NAME}", echo=False, convert_unicode=True
 # )
@@ -18,7 +20,7 @@ engine = create_engine(
     f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_ADDRESS}/{DB_NAME}", echo=False, convert_unicode=True
 )
 engine.execution_options(stream_results=True)
-redis_conn = Redis(host='localhost', port=6379, db=1, decode_responses=True)
+redis_conn = Redis(host=REDIS_LIMITER, port=REDIS_LIMITER_PORT, db=REDIS_LIMITER_DB, decode_responses=True)
 
 Base = declarative_base()
 

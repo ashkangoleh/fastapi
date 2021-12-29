@@ -5,6 +5,7 @@ RUN apt-get update \
     && apt-get -y install libpq-dev gcc \
     && python -m pip install -U pip \
     && pip install psycopg2 \ 
+    && pip install git+https://github.com/long2ice/fastapi-limiter.git \
     && pip install -r /home/core_api/requirements.txt
 
 COPY . /home/core_api/
